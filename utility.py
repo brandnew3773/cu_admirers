@@ -1,10 +1,11 @@
 from sqlalchemy import *
 from datetime import datetime
+from passlib.hash import sha256_crypt
 
-DATABASEURI = "sqlite:///test.db"
+#DATABASEURI = "sqlite:///test.db"
 
-engine = create_engine(DATABASEURI)
-conn = engine.connect()
+#engine = create_engine(DATABASEURI)
+#conn = engine.connect()
 
 
 sqlite_mapping = {
@@ -47,24 +48,24 @@ class Or(Filter):
 
 class Table():
 
-    def save(self):
+    def save(self, conn):
         values = {k:v for k,v in self.__dict__.items() if not v is None}
         if self.__dict__[self.primary_key] is None:
-            self.insert(values)
+            self.insert(values, conn)
             res = conn.execute("Select last_insert_rowid()").fetchone()[0]
             self.__dict__[self.primary_key] = res
         else:
-            self.update()
+            self.update(conn)
 
     def _prepare_dict(self, dict):
         for k, v in dict.items():
             if v in db_mapping.keys():
                 dict[k] = db_mapping[v]
-            elif type(v) == str and not v[0] == "'":
+            elif type(v) == str or type(v) == unicode and not v[0] == "'":
                 dict[k] = "\'%s\'" % v
         return dict
 
-    def insert(self, dict):
+    def insert(self, dict, conn):
         dict = self._prepare_dict(dict)
         query = "INSERT INTO %s (" % str(self.table)
         items = sorted(dict.keys())
@@ -74,7 +75,7 @@ class Table():
         query += ");"
         return conn.execute(query)
 
-    def update(self):
+    def update(self, conn):
         query = "UPDATE %s SET " % self.table
         pd = self._prepare_dict(self.__dict__)
         query += ", ".join(" %s = %s" % (k, v) for k, v in pd.items() if not k == self.primary_key)
@@ -97,7 +98,7 @@ class Table():
         return [cls(**x) for x in items]
 
     @classmethod
-    def select(cls, filters, cols=False):
+    def select(cls, filters, conn, cols=False):
         query = "SELECT "
         query += ", ".join(str(x) for x in cols) if cols else " * "
         query += "FROM %s WHERE" % cls.table if filters else "FROM %s;" % cls.table
@@ -131,32 +132,87 @@ class Post(Table, object):
         self.post_created = post_created
         super(Post, self).__init__()
 
+class User(Table, object):
+
+    table = "web_user"
+    primary_key = "sid"
+
+    def __init__(self, first_name, last_name, email, sid=None, password = None,
+                 phone_number = None, email_verified = False, uni_name=None):
+        self.sid = sid
+        self.first_name = first_name
+        self.last_name = last_name
+        self.email = email
+        self.email_verified = email_verified
+        self.phone_number = phone_number
+        self.password = password
+        self.uni_name = uni_name
+        self.authenticated = False
+        super(User, self).__init__()
+
+    def is_active(self):
+        """True, as all users are active."""
+        return True
+
+    def get_id(self):
+        """Return the email address to satisfy Flask-Login's requirements."""
+        return self.email
+
+    def is_authenticated(self):
+        """Return True if the user is authenticated."""
+        return self.authenticated
+
+    def is_anonymous(self):
+        """False, as anonymous users aren't supported."""
+        return False
+
+    def set_password(self, raw_password):
+        hash = sha256_crypt.encrypt(raw_password)
+        self.password = hash
+
+    def check_password(self, raw_password):
+        if sha256_crypt.verify(raw_password, self.password):
+            self.authenticated = True
+            return True
 
 
-conn.execute("""DROP TABLE IF EXISTS post;""")
-conn.execute("""CREATE TABLE IF NOT EXISTS post (
-  pid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-  post_body text,
-  post_created timestamp,
-  approved boolean,
-  poster integer,
-  lid integer
-);""")
+
+#conn.execute("""DROP TABLE IF EXISTS post;""")
+#conn.execute("""CREATE TABLE IF NOT EXISTS post (
+#  pid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+#  post_body text,
+#  post_created timestamp,
+#  approved boolean,
+#  poster integer,
+#  lid integer
+#);""")
 
 
-p = Post("hello world", False, 1, 2)
-p.save()
-p.post_body = "goodbye"
-p.save()
+# conn.execute("""DROP TABLE IF EXISTS web_user;""")
+# conn.execute("""CREATE TABLE IF NOT EXISTS web_user (
+#   sid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+#   first_name text,
+#   last_name text,
+#   email text,
+#   email_verified boolean,
+#   phone_number text,
+#   password text,
+#   uni_name text
+# );""")
+
+#p = Post("hello world", False, 1, 2)
+#p.save()
+#p.post_body = "goodbye"
+#p.save()
 
 
-objects = Post.get_all()
+#objects = Post.get_all()
 
 
 
-x = Post.select([And(Equal("poster", 1), Equal("approved", False))])
+#x = Post.select([And(Equal("poster", 1), Equal("approved", False))])
 
-print(str(x[0]))
+#print(str(x[0]))
 
 
 

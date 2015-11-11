@@ -20,6 +20,7 @@ eugene wu 2015
 import os
 from sqlalchemy import *
 from sqlalchemy.pool import NullPool
+from utility import User, Equal
 from flask import Flask, request, render_template, g, redirect, Response, url_for, flash, session
 from flask.ext.login import LoginManager, UserMixin, login_required, login_user
 
@@ -30,68 +31,19 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 
 
-class User(UserMixin):
-    # proxy for a database of users
-    user_database = {"JohnDoe": ("JohnDoe", "John"),
-               "JaneDoe": ("JaneDoe", "Jane")}
+#class User(UserMixin):
+#    # proxy for a database of users
 
-    def __init__(self, username, password):
-        self.id = username
-        self.password = password
+#    def __init__(self, username, password):
+#        self.id = username
+#        self.password = password
 
-    @classmethod
-    def get(cls,id):
-        return cls.user_database.get(id)
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User(User.get("JohnDoe")[0], User.get("JohnDoe")[1])
-
-@login_manager.request_loader
-def load_user(request):
-    token = request.headers.get('Authorization')
-    if token is None:
-        token = request.args.get('token')
-
-    if token is not None:
-        username,password = token.split(":") # naive token
-        user_entry = User.get(username)
-        if (user_entry is not None):
-            user = User(user_entry[0],user_entry[1])
-            if (user.password == password):
-                return user
-    return None
+#    @classmethod
+#    def get(cls, email):
+#        return User.select([Equal("email", email)])
 
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    # Here we use a class of some kind to represent and validate our
-    # client-side form data. For example, WTForms is a library that will
-    # handle this for us, and we use a custom LoginForm to validate.
-    #form = LoginForm()
-    print("hello22")
-    user = User("test", "123")
-    print("hello3")
-    try:
-        login_user(user)
-    except BaseException as e:
-        print(e)
-    print("hello4")
-    #if form.validate_on_submit():
-        # Login and validate the user.
-        # user should be an instance of your `User` class
-    #    login_user(user)
 
-        #flask.flash('Logged in successfully.')
-
-        #next = request.args.get('next')
-        # next_is_valid should check if the user has valid
-        # permission to access the `next` url
-        #if not next_is_valid(next):
-        #    return flask.abort(400)
-
-    return redirect('/')
-    #return render_template('login.html', form=form)
 
 #
 # The following uses the sqlite3 database test.db -- you can use this for debugging purposes
@@ -113,7 +65,7 @@ DATABASEURI = "sqlite:///test.db"
 # This line creates a database engine that knows how to connect to the URI above
 #
 engine = create_engine(DATABASEURI)
-
+#conn = engine.connect()
 
 #
 # START SQLITE SETUP CODE
@@ -129,15 +81,6 @@ engine = create_engine(DATABASEURI)
 #     .schema <tablename>   -- print CREATE TABLE statement for table
 #
 # The setup code should be deleted once you switch to using the Part 2 postgresql database
-#
-engine.execute("""DROP TABLE IF EXISTS test;""")
-engine.execute("""CREATE TABLE IF NOT EXISTS test (
-  id serial,
-  name text
-);""")
-engine.execute("""INSERT INTO test(name) VALUES ('grace hopper'), ('alan turing'), ('ada lovelace');""")
-#
-# END SQLITE SETUP CODE
 #
 
 
@@ -184,7 +127,6 @@ def teardown_request(exception):
 # see for decorators: http://simeonfranklin.com/blog/2012/jul/1/python-decorators-in-12-steps/
 #
 @app.route('/', methods=["POST", "GET"])
-@login_required
 def index():
     """
     request is a special object that Flask provides to access web request information:
@@ -243,6 +185,77 @@ def index():
     # for example, the below file reads template/index.html
     #
     return render_template("index.html", **context)
+
+
+
+
+@login_manager.user_loader
+def load_user(email):
+    user = None
+    try:
+        user = User.select([Equal("email", "'%s'" % email)], g.conn)[0]
+    except BaseException as e:
+        print e
+    return user
+
+
+# @login_manager.request_loader
+# def load_user(request):
+#     token = request.headers.get('Authorization')
+#     if token is None:
+#         token = request.args.get('token')
+#
+#     if token is not None:
+#         username,password = token.split(":") # naive token
+#         user_entry = User.get(username)
+#         if (user_entry is not None):
+#             user = User(user_entry[0],user_entry[1])
+#             if (user.password == password):
+#                 return user
+#     return None
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    # Here we use a class of some kind to represent and validate our
+    # client-side form data. For example, WTForms is a library that will
+    # handle this for us, and we use a custom LoginForm to validate.
+    #form = LoginForm()
+    print "login"
+    if request.method == "POST":
+        print "post"
+        email = request.form["email"]
+        password = request.form["password"]
+        print email
+        user = User.select([Equal("email", "'%s'" % email)], g.conn)[0]
+        print user.password
+        if (user and user.check_password(password)):
+            print "correct login"
+            login_user(user)
+    else:
+        flash('Username or password incorrect')
+
+    return redirect("/")
+
+@app.route("/settings")
+@login_required
+def settings():
+    pass
+
+@app.route('/register', methods=['POST'])
+def register():
+    print("starting register")
+    email = request.form["email"]
+    first_name = request.form["first_name"]
+    last_name = request.form["last_name"]
+    raw_password = request.form["password"]
+    user = User(first_name, last_name, email)
+    print("created user")
+    user.set_password(raw_password)
+    user.save(g.conn)
+    print("Saving user")
+    return redirect("/")
+
 
 #
 # This is an example of a different path.  You can see it at

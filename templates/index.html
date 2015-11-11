@@ -30,17 +30,31 @@
             <!-- content goes here -->
 			<form>
               <textarea rows="6" placeholder="Let us hear who you admire! (You can use '#' to tag ideas and '@' to tag unis)" ></textarea>
+                {% if not current_user.is_authenticated %}
+                    <div class="checkbox">
+                    <label>
+                      <input type="checkbox" disabled checked> Post Anonymously?
+                    </label>
+                  </div>
+                    <div class="checkbox">
+                    <label>
+                      <input type="checkbox" disabled> Allow 3 Guesses  (Login to use this feature!)
+                    </label>
+                  </div>
+                {% else %}
+                    <div class="checkbox">
+                    <label>
+                      <input type="checkbox" checked> Post Anonymously?
+                    </label>
+                  </div>
+                    <div class="checkbox">
+                    <label>
+                      <input type="checkbox"> Allow 3 Guesses (This will allow the person you tag to try and guess your uni, if they do, you will both be emailed about it! Must tag user with @UNI in the post for it to work)
+                    </label>
+                  </div>
+                {% endif %}
 
-              <div class="checkbox">
-                <label>
-                  <input type="checkbox"> Post Anonymously?
-                </label>
-              </div>
-                <div class="checkbox">
-                <label>
-                  <input type="checkbox"> Allow 3 Guesses
-                </label>
-              </div>
+
             </form>
 
 		</div>
@@ -76,19 +90,15 @@
             <div id="div-forms">
 
                 <!-- Begin # Login Form -->
-                <form id="login-form">
+                <form id="login-form" action="/login" method="POST">
                     <div class="modal-body">
                         <div id="div-login-msg">
                             <div id="icon-login-msg" class="glyphicon glyphicon-chevron-right"></div>
-                            <span id="text-login-msg">Type your username and password.</span>
+                            <span id="text-login-msg">Type your CU email and password.</span>
                         </div>
-                        <input id="login_username" class="form-control" type="text" placeholder="Username (type ERROR for error effect)" required>
-                        <input id="login_password" class="form-control" type="password" placeholder="Password" required>
-                        <div class="checkbox">
-                            <label>
-                                <input type="checkbox"> Remember me
-                            </label>
-                        </div>
+                        <input id="login_username" class="form-control" name="email" type="email" placeholder="Columbia Email" required>
+                        <input id="login_password" class="form-control" name="password" type="password" placeholder="Password" required>
+
                     </div>
                     <div class="modal-footer">
                         <div>
@@ -124,15 +134,16 @@
                 <!-- End | Lost Password Form -->
 
                 <!-- Begin | Register Form -->
-                <form id="register-form" style="display:none;">
+                <form id="register-form" method="post" action="/register" style="display:none;">
                     <div class="modal-body">
                         <div id="div-register-msg">
                             <div id="icon-register-msg" class="glyphicon glyphicon-chevron-right"></div>
                             <span id="text-register-msg">Register an account.</span>
                         </div>
-                        <input id="register_username" class="form-control" type="text" placeholder="Username (type ERROR for error effect)" required>
-                        <input id="register_email" class="form-control" type="text" placeholder="E-Mail" required>
-                        <input id="register_password" class="form-control" type="password" placeholder="Password" required>
+                        <input id="register_first_name" name="first_name" class="form-control" type="text" placeholder="First Name" required>
+                        <input id="register_last_name" name="last_name" class="form-control" type="text" placeholder="Last Name" required>
+                        <input id="register_email" name="email" class="form-control" type="text" placeholder="Columbia email with uni" required>
+                        <input id="register_password" name="password" class="form-control" type="password" placeholder="Password" required>
                     </div>
                     <div class="modal-footer">
                         <div>

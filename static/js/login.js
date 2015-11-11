@@ -28,7 +28,7 @@ $(function() {
                 } else {
                     msgChange($('#div-login-msg'), $('#icon-login-msg'), $('#text-login-msg'), "success", "glyphicon-ok", "Login OK");
                 }
-                return false;
+                $("form").submit();
                 break;
             case "lost-form":
                 var $ls_email=$('#lost_email').val();
@@ -48,7 +48,7 @@ $(function() {
                 } else {
                     msgChange($('#div-register-msg'), $('#icon-register-msg'), $('#text-register-msg'), "success", "glyphicon-ok", "Register OK");
                 }
-                return false;
+                $("form").submit();
                 break;
             default:
                 return false;
