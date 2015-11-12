@@ -101,4 +101,14 @@ $(document).ready(function(){
     $("[data-toggle=tooltip]").tooltip();
 });
 
-
+function submit_search(){
+    $.ajax({
+        type : "POST",
+        url : "/search",
+        data: JSON.stringify($("#search_text").val(), null, '\t'),
+        contentType: 'application/json;charset=UTF-8',
+        success: function(data, textStatus, jqXHR) {
+            document.write(data);
+        }
+});
+}

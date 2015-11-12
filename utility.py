@@ -71,8 +71,24 @@ class Filter():
         self.rhs = db_mapping.get(rhs, rhs)
         self.op = op
 
+    @classmethod
+    def and_reduce(cls, filters):
+        while len(filters) > 1:
+            lhs = filters.pop()
+            rhs = filters.pop()
+            filters.append(And(lhs, rhs))
+        return filters
+
+    @classmethod
+    def or_reduce(cls, filters):
+        while len(filters) > 1:
+            lhs = filters.pop()
+            rhs = filters.pop()
+            filters.append(Or(lhs, rhs))
+        return filters
+
     def compose(self):
-        return "(%s %s %s)" % (self.lhs, self.op, self.rhs)
+        return "%s %s %s" % (self.lhs, self.op, self.rhs)
 
 class Equal(Filter):
     def __init__(self, lhs, rhs):
@@ -89,6 +105,11 @@ class And(Filter):
 class Or(Filter):
     def __init__(self, lhs, rhs):
         Filter.__init__(self, lhs.compose(), " or ", rhs.compose())
+
+class Contains(Filter):
+    def __init__(self, lhs, rhs):
+        Filter.__init__(self, lhs, " like ", "'%"+rhs+"%'")
+
 
 
 
@@ -172,12 +193,14 @@ class Table():
     def select(cls, filters, joins, conn, cols=False):
         query = "SELECT "
         query += ", ".join(str(x) for x in cols) if cols else " * "
-        query += "FROM %s WHERE" % cls.table if filters else "FROM %s" % cls.table
-        for filter in filters:
-            query += " %s " % filter.compose()
-        for join in joins:
-            query += " LEFT JOIN %s on %s.%s = %s.%s;" % (join[1].table, cls.table, join[0], join[1].table, join[2])
+        query += "FROM %s" % cls.table
 
+        for join in joins:
+            query += " LEFT JOIN %s on %s.%s = %s.%s" % (join[1].table, cls.table, join[0], join[1].table, join[2])
+        if filters:
+            query += " WHERE "
+        for filter in filters:
+            query += "( %s.%s )" % (cls.table, filter.compose())
         if not query[-1] == ";":
             query += ";"
         print(query)

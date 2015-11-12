@@ -20,7 +20,7 @@ eugene wu 2015
 import os
 from sqlalchemy import *
 from sqlalchemy.pool import NullPool
-from utility import User, Equal, Post, Response, Like
+from utility import User, Equal, Post, Response, Like, Contains, And, Or, Filter
 from flask import Flask, request, render_template, g, redirect, Response, url_for, flash, session
 from flask.ext.login import LoginManager, UserMixin, login_required, login_user, current_user, logout_user
 
@@ -228,7 +228,23 @@ def guess():
 
 @app.route('/search', methods=['POST'])
 def search():
-    pass
+    print request.form
+    text = request.form.get("search_text", None)
+    pid = request.form.get("post_id", None)
+    contains = request.form.get("contains", None)
+    tagged = request.form.get("tagged", None)
+    filters = []
+    search_text = contains if contains != None else text
+    if pid != "":
+        pid_filter = Equal("pid", int(pid))
+        filters.append(pid_filter)
+    if search_text != "":
+        filters.append(Contains("post_body", search_text))
+    if tagged != "":
+        filters.append(Contains("post_body", tagged))
+    filters = Filter.and_reduce(filters)
+    posts = Post.select(filters, [("pid", Like, "pid")], g.conn)
+    return render_template("index.html", **{"posts": posts})
 
 @app.route('/logout', methods=['GET'])
 def logout():

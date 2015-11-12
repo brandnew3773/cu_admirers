@@ -168,7 +168,7 @@
 <div class="row">
     <div class="large-12 columns">
         <div class="panel">
-            <div style="width:50%"><h1>Columbia Admirers</h1></div>
+            <div style="width:50%"><h1>TITLE</h1></div>
 
             <p class="" style="width:40%; float:right;"><a href="#" class="btn btn-primary btn-lg" role="button" data-toggle="modal" data-target="#login-modal">Open Login Modal</a></p>
             <div class="center"><button data-toggle="modal" data-target="#squarespaceModal" class="btn btn-primary center-block">Post</button></div>
@@ -219,13 +219,13 @@
             <div class="row">
                 <div class="col-md-9">
                     <div class="input-group" id="adv-search">
-                        <input type="text" class="form-control" placeholder="Search posts" />
+                        <input type="text" name="search_text" id="search_text" class="form-control" placeholder="Search posts" />
                         <div class="input-group-btn">
                             <div class="btn-group" role="group">
                                 <div class="dropdown dropdown-lg">
                                     <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><span class="caret"></span></button>
                                     <div class="dropdown-menu dropdown-menu-right" role="menu">
-                                        <form class="form-horizontal" role="form" method="post" action="/search">
+                                        <form id="search_form" class="form-horizontal" method="post" action="/search">
                                             <div class="form-group">
                                                 <label for="contain">ID</label>
                                                 <input class="form-control" name="post_id" type="text" />
@@ -238,11 +238,11 @@
                                                 <label for="contain">Tagged Uni</label>
                                                 <input class="form-control" name="tagged" type="text" />
                                             </div>
-                                            <button type="submit" class="btn btn-primary"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
+                                            <button type="submit" onclick="$('#search_form').get(0).submit();" class="btn btn-primary"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
                                         </form>
                                     </div>
                                 </div>
-                                <button type="button" class="btn btn-primary"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
+                                <button onclick="submit_search()" type="button" class="btn btn-primary"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
                             </div>
                         </div>
                     </div>
