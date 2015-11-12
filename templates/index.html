@@ -216,30 +216,6 @@
 
     <div class="large-9 columns">
 
-        <div class="container">
-
-            <div class="row">
-
-                <div class="col-md-6">
-                    <div class="widget-area no-padding blank">
-                        <div class="status-upload">
-                            <form>
-                                <textarea placeholder="Let us hear who you admire" ></textarea>
-                                <ul>
-                                    <li><a title="" data-toggle="tooltip" data-placement="bottom" data-original-title="Audio"><i class="fa fa-music"></i></a></li>
-                                    <li><a title="" data-toggle="tooltip" data-placement="bottom" data-original-title="Video"><i class="fa fa-video-camera"></i></a></li>
-                                    <li><a title="" data-toggle="tooltip" data-placement="bottom" data-original-title="Sound Record"><i class="fa fa-microphone"></i></a></li>
-                                    <li><a title="" data-toggle="tooltip" data-placement="bottom" data-original-title="Picture"><i class="fa fa-picture-o"></i></a></li>
-                                </ul>
-                                <button type="submit" class="btn btn-success green"><i class="fa fa-share"></i> Share</button>
-                            </form>
-                        </div><!-- Status Upload  -->
-                    </div><!-- Widget Area -->
-                </div>
-
-            </div>
-        </div>
-        <hr/>
         {% for post in posts %}
             <div class="container">
             <div class="col-sm-8">
@@ -264,11 +240,11 @@
                     <div class="post-description">
                         <p>{{ post.post_body }}</p>
                         <div class="stats">
-                            <a href="#" class="btn btn-default stat-item">
-                                <i class="fa fa-thumbs-up icon"></i>2
+                            <a href="/like?pid={{ post.pid }}" class="btn btn-default stat-item">
+                                <i class="fa fa-thumbs-up icon"></i>{{ post.like_count }}
                             </a>
                             <a href="#" class="btn btn-default stat-item">
-                                <i class="fa fa-share icon"></i>12
+                                <i class="fa fa-share icon"></i>
                             </a>
                         </div>
                     </div>

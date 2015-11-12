@@ -94,12 +94,21 @@ class Or(Filter):
 
 class Table():
 
-    def save(self, conn):
+    def save(self, conn, force_insert=False):
         values = {k:v for k,v in self.__dict__.items() if not v is None}
-        if self.__dict__[self.primary_key] is None:
+        if self.__dict__[self.primary_key] is None or force_insert:
             self.insert(values, conn)
-            res = conn.execute("Select last_insert_rowid()").fetchone()[0]
-            self.__dict__[self.primary_key] = res
+            if not force_insert:
+                res = conn.execute("Select last_insert_rowid()").fetchone()[0]
+                self.__dict__[self.primary_key] = res
+                print("assigned primary key")
+        else:
+            self.update(conn)
+
+    def weak_save(self, conn, force_insert=False):
+        values = {k:v for k,v in self.__dict__.items() if not v is None}
+        if self.__dict__[self.primary_key] is None or force_insert:
+            self.weak_insert(values, conn)
         else:
             self.update(conn)
 
@@ -119,6 +128,20 @@ class Table():
         query += ") VALUES ("
         query += ", ".join(str(dict[x]) for x in items if not x == self.primary_key)
         query += ");"
+        print("Inserting:")
+        print(query)
+        return conn.execute(query)
+
+    def weak_insert(self, dict, conn):
+        dict = self._prepare_dict(dict)
+        query = "INSERT INTO %s (" % str(self.table)
+        items = sorted(dict.keys())
+        query += ", ".join(str(x) for x in items)
+        query += ") VALUES ("
+        query += ", ".join(str(dict[x]) for x in items)
+        query += ");"
+        print("Inserting:")
+        print(query)
         return conn.execute(query)
 
     def update(self, conn):
@@ -136,20 +159,28 @@ class Table():
 
 
     @classmethod
-    def get_all(cls, conn):
-        return  cls.select([], conn)
+    def get_all(cls, conn, joins):
+        return  cls.select([], joins, conn)
 
     @classmethod
     def _convert(cls, items):
+        #for item in items:
+        #    print(dict(item))
         return [cls(**x).prepare() for x in items]
 
     @classmethod
-    def select(cls, filters, conn, cols=False):
+    def select(cls, filters, joins, conn, cols=False):
         query = "SELECT "
         query += ", ".join(str(x) for x in cols) if cols else " * "
-        query += "FROM %s WHERE" % cls.table if filters else "FROM %s;" % cls.table
+        query += "FROM %s WHERE" % cls.table if filters else "FROM %s" % cls.table
         for filter in filters:
             query += " %s " % filter.compose()
+        for join in joins:
+            query += " LEFT JOIN %s on %s.%s = %s.%s;" % (join[1].table, cls.table, join[0], join[1].table, join[2])
+
+        if not query[-1] == ";":
+            query += ";"
+        print(query)
         items = conn.execute(query)
         return cls._convert(items)
 
@@ -164,6 +195,45 @@ class Table():
 #def to_table(cls):
 #    cls.primary_key = cls.primary_key
 #    cls.__name__ = cls.table_name
+class Response(Table, object):
+    table = "response"
+    primary_key = "rid"
+
+    def __init__(self, pid, sid=None, rid=None, response_created=None):
+        self.rid = rid
+        self.pid = pid
+        self.sid = sid
+        self.response_created = response_created
+
+    def create_table(cls, conn, drop=True):
+        if drop:
+            conn.execute("""DROP TABLE IF EXISTS response;""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS response (
+          rid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+          pid INTEGER NOT NULL,
+          sid INTEGER,
+          response_created timestamp DEFAULT CURRENT_TIMESTAMP,
+        );""")
+
+class Like(Table, object):
+    table = "post_like"
+    primary_key = "pid"
+
+    def __init__(self, pid, like_count=0, response_created=None):
+        self.pid = pid
+        self.response_created = response_created
+        self.like_count = like_count
+
+    @classmethod
+    def create_table(cls, conn, drop=True):
+        if drop:
+            conn.execute("""DROP TABLE IF EXISTS post_like;""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS post_like (
+          pid INTEGER PRIMARY KEY,
+          response_created timestamp DEFAULT CURRENT_TIMESTAMP,
+          like_count INTEGER DEFAULT (0),
+          FOREIGN KEY(pid) REFERENCES post(pid)
+        );""")
 
 
 class Post(Table, object):
@@ -171,14 +241,15 @@ class Post(Table, object):
     table = "post"
     primary_key = "pid"
 
-    def __init__(self, post_body, approved, poster, lid, allow_guesses=False, post_created=None, pid=None):
+    def __init__(self, post_body, approved, poster, allow_guesses=False, post_created=None, pid=None, like_count=0, response_created=None):
         self.post_body = post_body
         self.approved = approved
         self.poster = poster
-        self.lid = lid
         self.allow_guesses = allow_guesses
         self.pid = pid
         self.post_created = post_created
+        self.like_count = like_count
+        self.response_created = response_created
         super(Post, self).__init__()
 
     def prepare(self):
@@ -204,8 +275,7 @@ class Post(Table, object):
           post_created timestamp DEFAULT CURRENT_TIMESTAMP,
           approved boolean,
           allow_guesses boolean,
-          poster integer,
-          lid integer
+          poster integer
         );""")
 
 class User(Table, object):

@@ -20,7 +20,7 @@ eugene wu 2015
 import os
 from sqlalchemy import *
 from sqlalchemy.pool import NullPool
-from utility import User, Equal, Post
+from utility import User, Equal, Post, Response, Like
 from flask import Flask, request, render_template, g, redirect, Response, url_for, flash, session
 from flask.ext.login import LoginManager, UserMixin, login_required, login_user, current_user, logout_user
 
@@ -138,8 +138,12 @@ def index():
 
     See its API: http://flask.pocoo.org/docs/0.10/api/#incoming-request-data
     """
-    posts = Post.get_all(g.conn)
-    print(posts[0])
+    #Post.create_table(g.conn)
+    posts = Post.get_all(g.conn, [("pid", Like, "pid")])
+    if posts:
+        print posts[0]
+    else:
+        print "no posts"
     return render_template("index.html", **{"posts": posts})
 
 
@@ -149,7 +153,7 @@ def index():
 def load_user(email):
     user = None
     try:
-        user = User.select([Equal("email", "'%s'" % email)], g.conn)[0]
+        user = User.select([Equal("email", "'%s'" % email)], [], g.conn)[0]
     except BaseException as e:
         print e
     return user
@@ -198,9 +202,25 @@ def login():
 def comment():
     pass
 
-@app.route('/like', methods=['POST'])
+@app.route('/like', methods=['get'])
 def like():
-    pass
+    print("Like route")
+    #Like.create_table(g.conn)
+    pid = int(request.args.get("pid"))
+    likes = Like.select([Equal("pid", pid)], [], g.conn)
+    print(likes)
+    if not likes:
+        print "created like"
+        like = Like(pid=pid, like_count=1)
+        like.weak_save(g.conn, force_insert=True)
+    else:
+        print "updated like"
+        like = likes[0]
+        like.like_count += 1
+        like.weak_save(g.conn)
+
+    return redirect("/")
+
 
 @app.route('/guess', methods=['POST'])
 def guess():
@@ -218,7 +238,7 @@ def logout():
 
 @app.route('/post', methods=['POST'])
 def post():
-    Post.create_table(g.conn, True)
+    #Post.create_table(g.conn, True)
     print request.form
     post_body = request.form["post_body"]
     is_anonymous = request.form.get("is_anonymous", None) == "on"
@@ -234,7 +254,7 @@ def post():
     if not is_anonymous:
         print("Not anonymous")
         poster = user.sid
-    p = Post(post_body, False, poster, 1, allow_guesses=allow_guesses)
+    p = Post(post_body, False, poster, allow_guesses=allow_guesses)
     p.save(g.conn)
     return redirect("/")
 
