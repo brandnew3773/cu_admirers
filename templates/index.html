@@ -215,7 +215,42 @@
 
 
     <div class="large-9 columns">
-
+        <div class="container">
+            <div class="row">
+                <div class="col-md-9">
+                    <div class="input-group" id="adv-search">
+                        <input type="text" class="form-control" placeholder="Search posts" />
+                        <div class="input-group-btn">
+                            <div class="btn-group" role="group">
+                                <div class="dropdown dropdown-lg">
+                                    <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><span class="caret"></span></button>
+                                    <div class="dropdown-menu dropdown-menu-right" role="menu">
+                                        <form class="form-horizontal" role="form" method="post" action="/search">
+                                            <div class="form-group">
+                                                <label for="contain">ID</label>
+                                                <input class="form-control" name="post_id" type="text" />
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="contain">Contains the words</label>
+                                                <input class="form-control" name="contains" type="text" />
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="contain">Tagged Uni</label>
+                                                <input class="form-control" name="tagged" type="text" />
+                                            </div>
+                                            <button type="submit" class="btn btn-primary"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
+                                        </form>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-primary"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3"></div>
+            </div>
+        </div>
+        <hr/>
         {% for post in posts %}
             <div class="container">
             <div class="col-sm-8">
@@ -250,7 +285,7 @@
                     </div>
                     <div class="post-footer">
                         <div class="input-group">
-                            <input class="form-control" placeholder="Add a comment" type="text">
+                            <input class="form-control" style="z-index:1" placeholder="Add a comment" type="text">
                     <span class="input-group-addon">
                         <a href="#"><i class="fa fa-edit"></i></a>
                     </span>

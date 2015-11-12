@@ -241,15 +241,15 @@ class Post(Table, object):
     table = "post"
     primary_key = "pid"
 
-    def __init__(self, post_body, approved, poster, allow_guesses=False, post_created=None, pid=None, like_count=0, response_created=None):
+    def __init__(self, post_body, approved, poster, allow_guesses=False, post_created=None, pid=None, **kwargs):
         self.post_body = post_body
         self.approved = approved
         self.poster = poster
         self.allow_guesses = allow_guesses
         self.pid = pid
         self.post_created = post_created
-        self.like_count = like_count
-        self.response_created = response_created
+        for k, v in kwargs.items():
+            self.__dict__[k] = v
         super(Post, self).__init__()
 
     def prepare(self):
