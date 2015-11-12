@@ -1,6 +1,8 @@
 from sqlalchemy import *
 from datetime import datetime
 from passlib.hash import sha256_crypt
+from datetime import datetime, timedelta
+from dateutil.parser import parse
 
 #DATABASEURI = "sqlite:///test.db"
 
@@ -16,6 +18,50 @@ sqlite_mapping = {
 
 db_mapping = sqlite_mapping
 
+# Function taken from stackoverflow:
+# http://stackoverflow.com/questions/1551382/user-friendly-time-format-in-python
+def pretty_date(time=False):
+    """
+    Get a datetime object or a int() Epoch timestamp and return a
+    pretty string like 'an hour ago', 'Yesterday', '3 months ago',
+    'just now', etc
+    """
+    time = time - timedelta(hours=5)
+    now = datetime.now()
+    if type(time) is int:
+        diff = now - datetime.fromtimestamp(time)
+    elif isinstance(time, datetime):
+        diff = now - time
+    elif not time:
+        diff = now - now
+    second_diff = diff.seconds
+    day_diff = diff.days
+    print(day_diff)
+    if day_diff < 0:
+        return ''
+
+    if day_diff == 0:
+        if second_diff < 10:
+            return "just now"
+        if second_diff < 60:
+            return str(second_diff) + " seconds ago"
+        if second_diff < 120:
+            return "a minute ago"
+        if second_diff < 3600:
+            return str(second_diff / 60) + " minutes ago"
+        if second_diff < 7200:
+            return "an hour ago"
+        if second_diff < 86400:
+            return str(second_diff / 3600) + " hours ago"
+    if day_diff == 1:
+        return "Yesterday"
+    if day_diff < 7:
+        return str(day_diff) + " days ago"
+    if day_diff < 31:
+        return str(day_diff / 7) + " weeks ago"
+    if day_diff < 365:
+        return str(day_diff / 30) + " months ago"
+    return str(day_diff / 365) + " years ago"
 
 
 class Filter():
@@ -90,12 +136,12 @@ class Table():
 
 
     @classmethod
-    def get_all(cls):
-        return  cls.select([], [])
+    def get_all(cls, conn):
+        return  cls.select([], conn)
 
     @classmethod
     def _convert(cls, items):
-        return [cls(**x) for x in items]
+        return [cls(**x).prepare() for x in items]
 
     @classmethod
     def select(cls, filters, conn, cols=False):
@@ -107,6 +153,8 @@ class Table():
         items = conn.execute(query)
         return cls._convert(items)
 
+    def prepare(self):
+        return self
     #@classmethod
     #def create_table(cls):
 
@@ -123,14 +171,42 @@ class Post(Table, object):
     table = "post"
     primary_key = "pid"
 
-    def __init__(self, post_body, approved, poster, lid, post_created=None, pid=None):
+    def __init__(self, post_body, approved, poster, lid, allow_guesses=False, post_created=None, pid=None):
         self.post_body = post_body
         self.approved = approved
         self.poster = poster
         self.lid = lid
+        self.allow_guesses = allow_guesses
         self.pid = pid
         self.post_created = post_created
         super(Post, self).__init__()
+
+    def prepare(self):
+        d = {"poster": (self.__dict__["poster"] == None, "Anonymous"),
+            }
+        for k,v in d.items():
+            if k in self.__dict__ and v[0]:
+                self.__dict__[k] = v[1]
+                print("preparing")
+                print(self.__dict__[k])
+        if self.__dict__["post_created"] != None:
+            new_date = pretty_date(parse(self.__dict__["post_created"]))
+            self.__dict__["post_created"] = new_date
+        return self
+
+    @classmethod
+    def create_table(cls, conn, drop=True):
+        if drop:
+            conn.execute("""DROP TABLE IF EXISTS post;""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS post (
+          pid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+          post_body text,
+          post_created timestamp DEFAULT CURRENT_TIMESTAMP,
+          approved boolean,
+          allow_guesses boolean,
+          poster integer,
+          lid integer
+        );""")
 
 class User(Table, object):
 
@@ -147,7 +223,7 @@ class User(Table, object):
         self.phone_number = phone_number
         self.password = password
         self.uni_name = uni_name
-        self.authenticated = False
+        #self.authenticated = self.check_password(password)
         super(User, self).__init__()
 
     def is_active(self):
@@ -160,7 +236,7 @@ class User(Table, object):
 
     def is_authenticated(self):
         """Return True if the user is authenticated."""
-        return self.authenticated
+        return True
 
     def is_anonymous(self):
         """False, as anonymous users aren't supported."""
@@ -174,6 +250,7 @@ class User(Table, object):
         if sha256_crypt.verify(raw_password, self.password):
             self.authenticated = True
             return True
+        return False
 
 
 

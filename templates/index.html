@@ -28,49 +28,49 @@
 		<div class="modal-body">
 
             <!-- content goes here -->
-			<form>
-              <textarea rows="6" placeholder="Let us hear who you admire! (You can use '#' to tag ideas and '@' to tag unis)" ></textarea>
+            <form method="post" action="/post" id="post_form">
+                <textarea rows="6" name="post_body" placeholder="Let us hear who you admire! (You can use '#' to tag ideas and '@' to tag unis)" ></textarea>
                 {% if not current_user.is_authenticated %}
-                    <div class="checkbox">
+                <div class="checkbox">
                     <label>
-                      <input type="checkbox" disabled checked> Post Anonymously?
+                        <input type="checkbox" disabled checked name="is_anonymous"> Post Anonymously?
                     </label>
-                  </div>
-                    <div class="checkbox">
+                </div>
+                <div class="checkbox">
                     <label>
-                      <input type="checkbox" disabled> Allow 3 Guesses  (Login to use this feature!)
+                        <input type="checkbox" disabled name="allow_guesses"> Allow 3 Guesses  (Login to use this feature!)
                     </label>
-                  </div>
+                </div>
                 {% else %}
-                    <div class="checkbox">
+                <div class="checkbox">
                     <label>
-                      <input type="checkbox" checked> Post Anonymously?
+                        <input type="checkbox" checked name="is_anonymous"> Post Anonymously?
                     </label>
-                  </div>
-                    <div class="checkbox">
+                </div>
+                <div class="checkbox">
                     <label>
-                      <input type="checkbox"> Allow 3 Guesses (This will allow the person you tag to try and guess your uni, if they do, you will both be emailed about it! Must tag user with @UNI in the post for it to work)
+                        <input type="checkbox" name="allow_guesses"> Allow 3 Guesses (This will allow the person you tag to try and guess your uni, if they do, you will both be emailed about it! Must tag user with @UNI in the post for it to work)
                     </label>
-                  </div>
+                </div>
                 {% endif %}
 
-
+                <div class="modal-footer">
+                    <div class="btn-group btn-group-justified" aria-label="group button">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-default" data-dismiss="modal"  role="button">Close</button>
+                        </div>
+                        <div class="btn-group btn-delete hidden" role="group">
+                            <button type="button" id="delImage" class="btn btn-default btn-hover-red" data-dismiss="modal"  role="button">Cancel</button>
+                        </div>
+                        <div class="btn-group">
+                            <button type="submit" id="post_button" class="btn btn-default btn-hover-green" onclick="$('#post_form').get(0).submit();" >Post</button>
+                        </div>
+                    </div>
+                </div>
             </form>
 
 		</div>
-		<div class="modal-footer">
-			<div class="btn-group btn-group-justified" role="group" aria-label="group button">
-				<div class="btn-group" role="group">
-					<button type="button" class="btn btn-default" data-dismiss="modal"  role="button">Close</button>
-				</div>
-				<div class="btn-group btn-delete hidden" role="group">
-					<button type="button" id="delImage" class="btn btn-default btn-hover-red" data-dismiss="modal"  role="button">Cancel</button>
-				</div>
-				<div class="btn-group" role="group">
-					<button type="button" id="saveImage" class="btn btn-default btn-hover-green" data-action="save" role="button">Post</button>
-				</div>
-			</div>
-		</div>
+
 	</div>
   </div>
 </div>
@@ -240,6 +240,90 @@
             </div>
         </div>
         <hr/>
+        {% for post in posts %}
+            <div class="container">
+            <div class="col-sm-8">
+                <div class="panel panel-white post panel-shadow" style="background:white">
+                    <div class="post-heading">
+                        <!--<div class="pull-left image">
+                            <img src="http://bootdey.com/img/Content/user_1.jpg" class="img-circle avatar" alt="user profile image">
+                        </div>-->
+                        <div class="pull-left meta">
+                            <div class="title h5">
+                                <a href="#"><b>{{ post.poster }}</b></a>
+                                made a post.
+                            </div>
+                            <h6 class="text-muted time">{{ post.post_created }}</h6>
+                        </div>
+                        <div class="pull-right meta">
+                            <div class="title h5">
+                                <h6 class="text-muted time">{{ post.pid }}</h6>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="post-description">
+                        <p>{{ post.post_body }}</p>
+                        <div class="stats">
+                            <a href="#" class="btn btn-default stat-item">
+                                <i class="fa fa-thumbs-up icon"></i>2
+                            </a>
+                            <a href="#" class="btn btn-default stat-item">
+                                <i class="fa fa-share icon"></i>12
+                            </a>
+                        </div>
+                    </div>
+                    <div class="post-footer">
+                        <div class="input-group">
+                            <input class="form-control" placeholder="Add a comment" type="text">
+                    <span class="input-group-addon">
+                        <a href="#"><i class="fa fa-edit"></i></a>
+                    </span>
+                        </div>
+                        <ul class="comments-list">
+                            <li class="comment">
+                                <a class="pull-left" href="#">
+                                    <img class="avatar" src="http://bootdey.com/img/Content/user_1.jpg" alt="avatar">
+                                </a>
+                                <div class="comment-body">
+                                    <div class="comment-heading">
+                                        <h4 class="user">Gavino Free</h4>
+                                        <h5 class="time">5 minutes ago</h5>
+                                    </div>
+                                    <p>Sure, oooooooooooooooohhhhhhhhhhhhhhhh</p>
+                                </div>
+                                <!--<ul class="comments-list">
+                                    <li class="comment">
+                                        <a class="pull-left" href="#">
+                                            <img class="avatar" src="http://bootdey.com/img/Content/user_3.jpg" alt="avatar">
+                                        </a>
+                                        <div class="comment-body">
+                                            <div class="comment-heading">
+                                                <h4 class="user">Ryan Haywood</h4>
+                                                <h5 class="time">3 minutes ago</h5>
+                                            </div>
+                                            <p>Relax my friend</p>
+                                        </div>
+                                    </li>
+                                    <li class="comment">
+                                        <a class="pull-left" href="#">
+                                            <img class="avatar" src="http://bootdey.com/img/Content/user_2.jpg" alt="avatar">
+                                        </a>
+                                        <div class="comment-body">
+                                            <div class="comment-heading">
+                                                <h4 class="user">Gavino Free</h4>
+                                                <h5 class="time">3 minutes ago</h5>
+                                            </div>
+                                            <p>Ok, cool.</p>
+                                        </div>
+                                    </li>
+                                </ul>-->
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
         <div class="container">
             <div class="col-sm-8">
                 <div class="panel panel-white post panel-shadow" style="background:white">

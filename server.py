@@ -20,9 +20,10 @@ eugene wu 2015
 import os
 from sqlalchemy import *
 from sqlalchemy.pool import NullPool
-from utility import User, Equal
+from utility import User, Equal, Post
 from flask import Flask, request, render_template, g, redirect, Response, url_for, flash, session
-from flask.ext.login import LoginManager, UserMixin, login_required, login_user
+from flask.ext.login import LoginManager, UserMixin, login_required, login_user, current_user, logout_user
+
 
 tmpl_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
 app = Flask(__name__, template_folder=tmpl_dir)
@@ -137,54 +138,9 @@ def index():
 
     See its API: http://flask.pocoo.org/docs/0.10/api/#incoming-request-data
     """
-
-    # DEBUG: this is debugging code to see what request looks like
-    print request.args
-
-
-    #
-    # example of a database query
-    #
-    cursor = g.conn.execute("SELECT name FROM test")
-    names = []
-    for result in cursor:
-        names.append(result['name'])  # can also be accessed using result[0]
-    cursor.close()
-
-    #
-    # Flask uses Jinja templates, which is an extension to HTML where you can
-    # pass data to a template and dynamically generate HTML based on the data
-    # (you can think of it as simple PHP)
-    # documentation: https://realpython.com/blog/python/primer-on-jinja-templating/
-    #
-    # You can see an example template in templates/index.html
-    #
-    # context are the variables that are passed to the template.
-    # for example, "data" key in the context variable defined below will be
-    # accessible as a variable in index.html:
-    #
-    #     # will print: [u'grace hopper', u'alan turing', u'ada lovelace']
-    #     <div>{{data}}</div>
-    #
-    #     # creates a <div> tag for each element in data
-    #     # will print:
-    #     #
-    #     #   <div>grace hopper</div>
-    #     #   <div>alan turing</div>
-    #     #   <div>ada lovelace</div>
-    #     #
-    #     {% for n in data %}
-    #     <div>{{n}}</div>
-    #     {% endfor %}
-    #
-    context = dict( data = names )
-
-    print("index is here")
-    #
-    # render_template looks in the templates/ folder for files.
-    # for example, the below file reads template/index.html
-    #
-    return render_template("index.html", **context)
+    posts = Post.get_all(g.conn)
+    print(posts[0])
+    return render_template("index.html", **{"posts": posts})
 
 
 
@@ -231,16 +187,57 @@ def login():
         print user.password
         if (user and user.check_password(password)):
             print "correct login"
+            user.authenticated = True
             login_user(user)
     else:
         flash('Username or password incorrect')
 
     return redirect("/")
 
-@app.route("/settings")
-@login_required
-def settings():
+@app.route('/comment', methods=['POST'])
+def comment():
     pass
+
+@app.route('/like', methods=['POST'])
+def like():
+    pass
+
+@app.route('/guess', methods=['POST'])
+def guess():
+    pass
+
+@app.route('/search', methods=['POST'])
+def search():
+    pass
+
+@app.route('/logout', methods=['GET'])
+def logout():
+    logout_user()
+    return redirect("/")
+
+
+@app.route('/post', methods=['POST'])
+def post():
+    Post.create_table(g.conn, True)
+    print request.form
+    post_body = request.form["post_body"]
+    is_anonymous = request.form.get("is_anonymous", None) == "on"
+    print("is anonymous")
+    allow_guesses = request.form.get("allow_guesses", None) == "on"
+    user = current_user
+    print user
+    if not user.is_authenticated():
+        print("not authenticated")
+        is_anonymous = True
+        allow_guesses = False
+    poster = None
+    if not is_anonymous:
+        print("Not anonymous")
+        poster = user.sid
+    p = Post(post_body, False, poster, 1, allow_guesses=allow_guesses)
+    p.save(g.conn)
+    return redirect("/")
+
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -257,17 +254,6 @@ def register():
     return redirect("/")
 
 
-#
-# This is an example of a different path.  You can see it at
-#
-#     localhost:8111/another/
-#
-# notice that the functio name is another() rather than index()
-# the functions for each app.route needs to have different names
-#
-@app.route('/another/', methods=["POST", "GET"])
-def another():
-    return render_template("anotherfile.html")
 
 if __name__ == "__main__":
     import click
