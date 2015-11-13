@@ -21,7 +21,7 @@ import os
 import re
 from sqlalchemy import *
 from sqlalchemy.pool import NullPool
-from utility import User, Equal, Post, Response, Like, Contains, And, Or, Filter
+from utility import User, Equal, Post, Response, Like, Contains, And, Or, Filter, Comment, GuessSetting
 from flask import Flask, request, render_template, g, redirect, Response, url_for, flash, session
 from flask.ext.login import LoginManager, UserMixin, login_required, login_user, current_user, logout_user
 
@@ -32,7 +32,7 @@ app = Flask(__name__, template_folder=tmpl_dir)
 login_manager = LoginManager()
 login_manager.init_app(app)
 
-
+NUMBER_GUESSES = 3
 #class User(UserMixin):
 #    # proxy for a database of users
 
@@ -115,41 +115,30 @@ def teardown_request(exception):
         pass
 
 
-#
-# @app.route is a decorator around index() that means:
-#   run index() whenever the user tries to access the "/" path using a POST or GET request
-#
-# If you wanted the user to go to e.g., localhost:8111/foobar/ with POST or GET then you could use
-#
-#       @app.route("/foobar/", methods=["POST", "GET"])
-#
-# PROTIP: (the trailing / in the path is important)
-#
-# see for routing: http://flask.pocoo.org/docs/0.10/quickstart/#routing
-# see for decorators: http://simeonfranklin.com/blog/2012/jul/1/python-decorators-in-12-steps/
-#
 @app.route('/', methods=["POST", "GET"])
 def index():
+
     """
-    request is a special object that Flask provides to access web request information:
-
-    request.method:   "GET" or "POST"
-    request.form:     if the browser submitted a form, this contains the data in the form
-    request.args:     dictionary of URL arguments e.g., {a:1, b:2} for http://localhost?a=1&b=2
-
-    See its API: http://flask.pocoo.org/docs/0.10/api/#incoming-request-data
+    #User.create_table(g.conn)
+    Post.create_table(g.conn)
+    Comment.create_table(g.conn)
+    GuessSetting.create_table(g.conn)
+    Like.create_table(g.conn)
     """
-    #Post.create_table(g.conn)
-    posts = Post.get_all(g.conn, [("pid", Like, "pid")])
 
+    user = current_user
+    posts = Post.get_all(g.conn, [("pid", Like, "pid"),
+                                  ("pid", GuessSetting, "pid")])[::-1]
     if posts:
-        posts = posts[::-1]
-        print posts[0]
-    else:
-        print "no posts"
-    return render_template("index.html", **{"posts": posts})
+        print(posts[0])
+    for post in posts:
 
-
+        if hasattr(post, "tagged") and post.tagged == user.uni:
+            post.display_guess = True
+        else:
+            post.display_guess = False
+        post.comments = Comment.select([Equal("pid", post.pid)], [], g.conn)[::-1]
+    return render_template("main.html", **{"posts": posts})
 
 
 @login_manager.user_loader
@@ -162,48 +151,35 @@ def load_user(email):
     return user
 
 
-# @login_manager.request_loader
-# def load_user(request):
-#     token = request.headers.get('Authorization')
-#     if token is None:
-#         token = request.args.get('token')
-#
-#     if token is not None:
-#         username,password = token.split(":") # naive token
-#         user_entry = User.get(username)
-#         if (user_entry is not None):
-#             user = User(user_entry[0],user_entry[1])
-#             if (user.password == password):
-#                 return user
-#     return None
-
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    # Here we use a class of some kind to represent and validate our
-    # client-side form data. For example, WTForms is a library that will
-    # handle this for us, and we use a custom LoginForm to validate.
-    #form = LoginForm()
-    print "login"
-    if request.method == "POST":
-        print "post"
-        email = request.form["email"]
-        password = request.form["password"]
-        print email
-        user = User.select([Equal("email", "'%s'" % email)], g.conn)[0]
-        print user.password
-        if (user and user.check_password(password)):
-            print "correct login"
-            user.authenticated = True
-            login_user(user)
-    else:
-        flash('Username or password incorrect')
-
+    email = request.form["email"]
+    password = request.form["password"]
+    user = User.select([Equal("email", "'%s'" % email)], [], g.conn)[0]
+    if (user and user.check_password(password)):
+        user.authenticated = True
+        login_user(user)
     return redirect("/")
 
 @app.route('/comment', methods=['POST'])
 def comment():
-    pass
+    pid = int(request.json.get("pid"))
+    comment_body = request.json.get("comment_body")
+    is_anonymous = request.json.get("is_anonymous", None) == "on"
+    user = current_user
+
+    if not type(user) == bool or not user.is_authenticated():
+        print("not authenticated")
+        is_anonymous = True
+
+    poster = None
+    if not is_anonymous:
+        print("Not anonymous")
+        poster = user.sid
+    c = Comment(comment_body, poster, pid=pid)
+    c.save(g.conn)
+    return redirect("/")
+
 
 @app.route('/like', methods=['get'])
 def like():
@@ -227,7 +203,28 @@ def like():
 
 @app.route('/guess', methods=['POST'])
 def guess():
-    pass
+    print("Guessing!")
+    print(request.json)
+    pid = int(request.json.get("pid"))
+    guess = request.json.get("guess", None)
+    post = Post.select([Equal("pid", pid)],
+                                  [("pid", GuessSetting, "pid")], g.conn)[0]
+    gs = GuessSetting.select([Equal("gsid", post.gsid)], [], g.conn)[0]
+    user = current_user
+    if not post.allow_guesses or not user.uni == post.tagged or gs.remaining < 1:
+        print("access denied!")
+        return redirect("/")
+    gs.remaining -= 1
+
+    print(guess)
+    print(post.poster)
+    if guess is not None and guess == post.poster:
+        gs.matched = True
+        print "MATCH!!!!! LOVE IS IN THE AIR"
+    else:
+        print "No match"
+    gs.save(g.conn)
+    return redirect("/")
 
 @app.route('/search', methods=['POST'])
 def search():
@@ -248,49 +245,57 @@ def search():
     posts = Post.select(filters, [("pid", Like, "pid")], g.conn)
     if posts:
         posts = posts[::-1]
-    return render_template("index.html", **{"posts": posts})
+    return render_template("main.html", **{"posts": posts})
 
 @app.route('/logout', methods=['GET'])
 def logout():
     logout_user()
     return redirect("/")
 
+@app.route('/faqs', methods=['GET'])
+def faqs():
+    return render_template("faqs.html")
 
 @app.route('/post', methods=['POST'])
 def post():
-    #Post.create_table(g.conn, True)
-    print request.form
     post_body = request.form["post_body"]
     is_anonymous = request.form.get("is_anonymous", None) == "on"
-    print("is anonymous")
     allow_guesses = request.form.get("allow_guesses", None) == "on"
     user = current_user
-    m = re.search(r"@([^\s]*)", post_body)
-    if m:
-        print(m.group(1))
-    else:
-        print("No match")
+
     if not user.is_authenticated():
         print("not authenticated")
         is_anonymous = True
         allow_guesses = False
-    poster = None
+    poster = tagged = None
     if not is_anonymous:
         print("Not anonymous")
         poster = user.sid
+    m = re.search(r"@([^_\W]*)", post_body)
+    if m and allow_guesses:
+        tagged = m.group(1)
+    guesses = NUMBER_GUESSES if allow_guesses else 0
+    uni = user.uni if allow_guesses else None
+
     p = Post(post_body, False, poster, allow_guesses=allow_guesses)
     p.save(g.conn)
+    like = Like(pid=p.pid, like_count=0)
+    like.save(g.conn)
+    gs = GuessSetting(p.pid, poster=uni, tagged=tagged, num_guesses=guesses,
+                      remaining=guesses)
+    gs.save(g.conn)
     return redirect("/")
 
 
 @app.route('/register', methods=['POST'])
 def register():
-    print("starting register")
+    print("starting registration")
     email = request.form["email"]
+    uni = email.split("@")[0]
     first_name = request.form["first_name"]
     last_name = request.form["last_name"]
     raw_password = request.form["password"]
-    user = User(first_name, last_name, email)
+    user = User(first_name, last_name, email, uni)
     print("created user")
     user.set_password(raw_password)
     user.save(g.conn)

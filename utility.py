@@ -196,7 +196,7 @@ class Table():
         query += "FROM %s" % cls.table
 
         for join in joins:
-            query += " LEFT JOIN %s on %s.%s = %s.%s" % (join[1].table, cls.table, join[0], join[1].table, join[2])
+            query += " LEFT OUTER JOIN %s on %s.%s = %s.%s" % (join[1].table, cls.table, join[0], join[1].table, join[2])
         if filters:
             query += " WHERE "
         for filter in filters:
@@ -301,12 +301,80 @@ class Post(Table, object):
           poster integer
         );""")
 
+
+class Comment(Table, object):
+
+    table = "comment"
+    primary_key = "cid"
+
+    def __init__(self, comment_body, poster, comment_created=None, pid=None, cid=None, **kwargs):
+        self.comment_body = comment_body
+        self.cid = cid
+        self.poster = poster
+        self.pid = pid
+        self.comment_created = comment_created
+        for k, v in kwargs.items():
+            self.__dict__[k] = v
+        super(Comment, self).__init__()
+
+    def prepare(self):
+        d = {"poster": (self.__dict__["poster"] == None, "Anonymous"),
+            }
+        for k,v in d.items():
+            if k in self.__dict__ and v[0]:
+                self.__dict__[k] = v[1]
+                print("preparing")
+                print(self.__dict__[k])
+        if self.__dict__["comment_created"] != None:
+            new_date = pretty_date(parse(self.__dict__["comment_created"]))
+            self.__dict__["comment_created"] = new_date
+        return self
+
+    @classmethod
+    def create_table(cls, conn, drop=True):
+        if drop:
+            conn.execute("""DROP TABLE IF EXISTS comment;""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS comment (
+          cid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+          comment_body text,
+          pid INTEGER NOT NULL,
+          comment_created timestamp DEFAULT CURRENT_TIMESTAMP,
+          poster integer
+        );""")
+
+class GuessSetting(Table, object):
+    table = "guess_setting"
+    primary_key = "gsid"
+
+    def __init__(self, pid, poster=None, tagged=None, num_guesses=3, remaining=3, matched=False, gsid=None):
+        self.pid = pid
+        self.gsid = gsid
+        self.poster = poster
+        self.tagged = tagged
+        self.num_guesses = num_guesses
+        self.remaining = remaining
+        self.matched = matched
+
+    @classmethod
+    def create_table(cls, conn, drop=True):
+        if drop:
+            conn.execute("""DROP TABLE IF EXISTS guess_setting;""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS guess_setting (
+          gsid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+          pid INTEGER NOT NULL,
+          poster INTEGER,
+          tagged INTEGER,
+          num_guesses INTEGER,
+          remaining INTEGER,
+          matched BOOLEAN
+        );""")
+
 class User(Table, object):
 
     table = "web_user"
     primary_key = "sid"
 
-    def __init__(self, first_name, last_name, email, sid=None, password = None,
+    def __init__(self, first_name, last_name, email, uni=None, sid=None, password = None,
                  phone_number = None, email_verified = False, uni_name=None):
         self.sid = sid
         self.first_name = first_name
@@ -315,6 +383,7 @@ class User(Table, object):
         self.email_verified = email_verified
         self.phone_number = phone_number
         self.password = password
+        self.uni = uni
         self.uni_name = uni_name
         #self.authenticated = self.check_password(password)
         super(User, self).__init__()
@@ -345,6 +414,7 @@ class User(Table, object):
             return True
         return False
 
+    @classmethod
     def create_table(self, conn, drop=True):
         if drop:
             conn.execute("""DROP TABLE IF EXISTS web_user;""")
@@ -352,7 +422,8 @@ class User(Table, object):
         sid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
         first_name text,
          last_name text,
-         email text,
+         email text NOT NULL,
+         uni text,
         email_verified boolean,
          phone_number text,
          password text,
