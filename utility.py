@@ -432,42 +432,6 @@ class User(Table, object):
 
 
 
-#conn.execute("""DROP TABLE IF EXISTS post;""")
-#conn.execute("""CREATE TABLE IF NOT EXISTS post (
-#  pid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-#  post_body text,
-#  post_created timestamp,
-#  approved boolean,
-#  poster integer,
-#  lid integer
-#);""")
-
-
-# conn.execute("""DROP TABLE IF EXISTS web_user;""")
-# conn.execute("""CREATE TABLE IF NOT EXISTS web_user (
-#   sid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-#   first_name text,
-#   last_name text,
-#   email text,
-#   email_verified boolean,
-#   phone_number text,
-#   password text,
-#   uni_name text
-# );""")
-
-#p = Post("hello world", False, 1, 2)
-#p.save()
-#p.post_body = "goodbye"
-#p.save()
-
-
-#objects = Post.get_all()
-
-
-
-#x = Post.select([And(Equal("poster", 1), Equal("approved", False))])
-
-#print(str(x[0]))
 
 
 

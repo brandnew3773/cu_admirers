@@ -115,6 +115,16 @@ def teardown_request(exception):
         pass
 
 
+def prepare_posts(user, posts):
+    posts = posts[::-1]
+    for post in posts:
+        if hasattr(post, "tagged") and post.tagged == user.uni:
+            post.display_guess = True
+        else:
+            post.display_guess = False
+        post.comments = Comment.select([Equal("pid", post.pid)], [], g.conn)[::-1]
+    return posts
+
 @app.route('/', methods=["POST", "GET"])
 def index():
 
@@ -128,16 +138,10 @@ def index():
 
     user = current_user
     posts = Post.get_all(g.conn, [("pid", Like, "pid"),
-                                  ("pid", GuessSetting, "pid")])[::-1]
+                                  ("pid", GuessSetting, "pid")])
     if posts:
         print(posts[0])
-    for post in posts:
-
-        if hasattr(post, "tagged") and post.tagged == user.uni:
-            post.display_guess = True
-        else:
-            post.display_guess = False
-        post.comments = Comment.select([Equal("pid", post.pid)], [], g.conn)[::-1]
+    posts = prepare_posts(user, posts)
     return render_template("main.html", **{"posts": posts})
 
 
@@ -243,8 +247,19 @@ def search():
         filters.append(Contains("post_body", tagged))
     filters = Filter.and_reduce(filters)
     posts = Post.select(filters, [("pid", Like, "pid")], g.conn)
-    if posts:
-        posts = posts[::-1]
+
+    posts = prepare_posts(current_user, posts)
+    return render_template("main.html", **{"posts": posts})
+
+@app.route('/own_posts', methods=['GET'])
+@login_required
+def own_posts():
+    filters = []
+    user = current_user
+    filters.append(Equal("poster", user.sid))
+    posts = Post.select(filters, [("pid", Like, "pid"),
+                                  ("pid", GuessSetting, "pid")], g.conn)
+    posts = prepare_posts(user, posts)
     return render_template("main.html", **{"posts": posts})
 
 @app.route('/logout', methods=['GET'])
@@ -266,6 +281,8 @@ def post():
     if not user.is_authenticated():
         print("not authenticated")
         is_anonymous = True
+        allow_guesses = False
+    if is_anonymous:
         allow_guesses = False
     poster = tagged = None
     if not is_anonymous:
