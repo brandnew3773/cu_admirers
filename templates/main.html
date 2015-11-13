@@ -14,7 +14,7 @@
                                 <div class="dropdown-menu dropdown-menu-right" role="menu">
                                     <form id="search_form" class="form-horizontal" method="post" action="/search">
                                         <div class="form-group">
-                                            <label for="contain">ID</label>
+                                            <label for="contain">Post ID</label>
                                             <input class="form-control" name="post_id" type="text" placeholder="eg: 3" />
                                         </div>
                                         <div class="form-group">
@@ -53,7 +53,7 @@
                     <div class="pull-left meta">
                         <div class="title h5">
                             <a href="#"><b>{{ post.poster }}</b></a>
-                            made a post.
+                            posted
                         </div>
                         <h6 class="text-muted time">{{ post.post_created }}</h6>
                     </div>
@@ -67,7 +67,7 @@
                     <p>{{ post.post_body }}</p>
                     <div class="stats">
                         <a href="/like?pid={{ post.pid }}" class="btn btn-default stat-item">
-                            <i class="fa fa-thumbs-up icon"></i>{{ post.like_count }}
+                            <i class="fa fa-thumbs-up icon"></i>{{ post.like_count if post.like_count != None else 0 }}
                         </a>
                         <a href="#" class="btn btn-default stat-item">
                             <i class="fa fa-share icon"></i>
@@ -79,7 +79,7 @@
                 <div class="post-footer">
                     {% if post.display_guess %}
                     <div class="input-group">
-
+                        {% if post.remaining > 0 %}
                         <input class="form-control"  id="guess_input{{ post.pid }}" style="z-index:1" placeholder="You've been tagged! You've got {{ post.remaining}} guesses left to try and match ;)" type="text">
 
                             <span class="input-group-addon">
@@ -92,6 +92,20 @@
                                     </div>
                                 </a>
                             </span>
+                        {% else %}
+                            <input class="form-control"  id="guess_input{{ post.pid }}" style="z-index:1" disabled placeholder="No more guesses remaining...:(" type="text">
+
+                            <span class="input-group-addon">
+                                <a href="#" title="Click here to submit a guess">
+                                    <div class="stacked-icons">
+                                      <span class="fa-stack" style="height:1.7em">
+                                        <i class="fa fa-heart-o fa-stack-2x text-danger"></i>
+                                        <strong class="fa-stack calendar-text">{{ post.remaining }}</strong>
+                                      </span>
+                                    </div>
+                                </a>
+                            </span>
+                        {% endif %}
 
                     </div>
                     <hr/>

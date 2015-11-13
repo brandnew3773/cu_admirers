@@ -110,5 +110,65 @@ function submit_search(){
         success: function(data, textStatus, jqXHR) {
             document.write(data);
         }
-});
+    });
 }
+
+function sendComment(pid){
+
+    var data = {
+        "pid": pid,
+        "comment_body": $("#comment_input"+String(pid)).val()
+    };
+    $.ajax({
+        type : "POST",
+        url : "/comment",
+        data: JSON.stringify(data, null, '\t'),
+        contentType: 'application/json;charset=UTF-8',
+        success: function(data, textStatus, jqXHR) {
+            document.write(data);
+        }
+    });
+}
+
+function sendGuess(pid){
+
+    var data = {
+        "pid": pid,
+        "guess": $("#guess_input"+String(pid)).val()
+    };
+    $.ajax({
+        type : "POST",
+        url : "/guess",
+        data: JSON.stringify(data, null, '\t'),
+        contentType: 'application/json;charset=UTF-8',
+        success: function(data, textStatus, jqXHR) {
+            document.write(data);
+        }
+    });
+}
+
+$(document).ready(function(){
+    $('input[name=allow_guesses]').change(function(){
+
+        if($(this).is(':checked'))
+        {
+            if($('input[name=is_anonymous]').is(':checked')){
+                alert("You can't allow guesses when posting anonymously!");
+                $('input[name=allow_guesses]').attr('checked', false);
+            }
+        }
+    });
+});
+
+$(document).ready(function(){
+    $('input[name=is_anonymous]').change(function(){
+
+        if($(this).is(':checked'))
+        {
+            if($('input[name=allow_guesses]').is(':checked')){
+                alert("You can't allow guesses when posting anonymously!");
+                $('input[name=allow_guesses]').attr('checked', false);
+            }
+        }
+    })
+});
