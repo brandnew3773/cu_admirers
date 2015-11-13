@@ -18,6 +18,7 @@ eugene wu 2015
 """
 
 import os
+import re
 from sqlalchemy import *
 from sqlalchemy.pool import NullPool
 from utility import User, Equal, Post, Response, Like, Contains, And, Or, Filter
@@ -140,7 +141,9 @@ def index():
     """
     #Post.create_table(g.conn)
     posts = Post.get_all(g.conn, [("pid", Like, "pid")])
+
     if posts:
+        posts = posts[::-1]
         print posts[0]
     else:
         print "no posts"
@@ -228,13 +231,12 @@ def guess():
 
 @app.route('/search', methods=['POST'])
 def search():
-    print request.form
-    text = request.form.get("search_text", None)
-    pid = request.form.get("post_id", None)
-    contains = request.form.get("contains", None)
-    tagged = request.form.get("tagged", None)
+    text = request.json
+    pid = request.form.get("post_id", "")
+    contains = request.form.get("contains", "")
+    tagged = request.form.get("tagged", "")
     filters = []
-    search_text = contains if contains != None else text
+    search_text = contains if contains != "" else text
     if pid != "":
         pid_filter = Equal("pid", int(pid))
         filters.append(pid_filter)
@@ -244,6 +246,8 @@ def search():
         filters.append(Contains("post_body", tagged))
     filters = Filter.and_reduce(filters)
     posts = Post.select(filters, [("pid", Like, "pid")], g.conn)
+    if posts:
+        posts = posts[::-1]
     return render_template("index.html", **{"posts": posts})
 
 @app.route('/logout', methods=['GET'])
@@ -261,7 +265,11 @@ def post():
     print("is anonymous")
     allow_guesses = request.form.get("allow_guesses", None) == "on"
     user = current_user
-    print user
+    m = re.search(r"@([^\s]*)", post_body)
+    if m:
+        print(m.group(1))
+    else:
+        print("No match")
     if not user.is_authenticated():
         print("not authenticated")
         is_anonymous = True

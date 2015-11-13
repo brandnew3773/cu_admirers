@@ -345,6 +345,20 @@ class User(Table, object):
             return True
         return False
 
+    def create_table(self, conn, drop=True):
+        if drop:
+            conn.execute("""DROP TABLE IF EXISTS web_user;""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS web_user (
+        sid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+        first_name text,
+         last_name text,
+         email text,
+        email_verified boolean,
+         phone_number text,
+         password text,
+         uni_name text
+       );""")
+
 
 
 #conn.execute("""DROP TABLE IF EXISTS post;""")
