@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container" style="width:100%">
+    <br />
+    <br />
+    <br />
+
+    <div class="alert alert-warning alert-dismissible" role="alert">
+        <button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+         If you don't see the answer to the question you are looking for, let us know and we will be sure to answer it as soon as possible!
+    </div>
+
+    <br />
+
+    <div class="panel-group" id="accordion">
+        <div class="faqHeader">General questions</div>
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h4 class="panel-title">
+                    <a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#collapseOne">What is guessing and how does it work?</a>
+                </h4>
+            </div>
+            <div id="collapseOne" class="panel-collapse collapse in">
+                <div class="panel-body">
+                    Guessing (and the allow guesses option) enables the person who is tagged in the post to try and guess the uni of the person who tagged them. If they guess correctly, an email will be sent letting both the poster and the person tagged know that they matched. What happens next is up to you ;)
+                </div>
+            </div>
+        </div>
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h4 class="panel-title">
+                    <a class="accordion-toggle collapsed" data-toggle="collapse" data-parent="#accordion" href="#collapseTen">Is it REALLY anonymous?</a>
+                </h4>
+            </div>
+            <div id="collapseTen" class="panel-collapse collapse">
+                <div class="panel-body">
+                    Yes absolutely! (Unless you uncheck the 'anonymous' checkbox of course). If the anonymous checkbox is filled we NEVER store the poster's information regardless of if they are logged in or not.
+                </div>
+            </div>
+        </div>
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h4 class="panel-title">
+                    <a class="accordion-toggle collapsed" data-toggle="collapse" data-parent="#accordion" href="#collapseEleven">Can I have more than three guesses?</a>
+                </h4>
+            </div>
+            <div id="collapseEleven" class="panel-collapse collapse">
+                <div class="panel-body">
+                    As of now, guesses are limited to 3, but we might allow the user to choose the number of guesses in the future.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

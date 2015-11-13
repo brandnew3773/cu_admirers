@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include 'header.html' %}
+</head>
+<body>
+    {% include 'post_modal.html' %}
+    {% include 'login_modal.html' %}
+    {% include 'top_bar.html' %}
+    <div class="row">
+        {% include 'sidebar.html' %}
+        <div class="large-9 columns">
+        {% block content %}
+        {% endblock %}
+        </div>
+    </div>
+    {% include 'footer.html' %}
+    {% include 'js_includes.html' %}
+</body>
+</html>

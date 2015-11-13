@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Foundation | Welcome</title>
+    <title>Columbia Admirers | ;)</title>
     <!--<link rel="stylesheet" href="../static/css/foundation.css" />-->
     <!-- Latest compiled and minified CSS -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous">
@@ -168,7 +168,7 @@
 <div class="row">
     <div class="large-12 columns">
         <div class="panel">
-            <div style="width:50%"><h1>TITLE</h1></div>
+            <div style="width:50%"><h1>CU Admirers</h1></div>
 
             <p class="" style="width:40%; float:right;"><a href="#" class="btn btn-primary btn-lg" role="button" data-toggle="modal" data-target="#login-modal">Open Login Modal</a></p>
             <div class="center"><button data-toggle="modal" data-target="#squarespaceModal" class="btn btn-primary center-block">Post</button></div>
@@ -226,7 +226,7 @@
             <div class="row">
                 <div class="col-md-9">
                     <div class="input-group" id="adv-search">
-                        <input type="text" name="search_text" id="search_text" class="form-control" placeholder="Search posts" />
+                        <input type="text" name="search_text" id="search_text" style="height:2.38em;" class="form-control" placeholder="Search posts" />
                         <div class="input-group-btn">
                             <div class="btn-group" role="group">
                                 <div class="dropdown dropdown-lg">
@@ -235,15 +235,19 @@
                                         <form id="search_form" class="form-horizontal" method="post" action="/search">
                                             <div class="form-group">
                                                 <label for="contain">ID</label>
-                                                <input class="form-control" name="post_id" type="text" />
+                                                <input class="form-control" name="post_id" type="text" placeholder="eg: 3" />
                                             </div>
                                             <div class="form-group">
                                                 <label for="contain">Contains the words</label>
-                                                <input class="form-control" name="contains" type="text" />
+                                                <input class="form-control" name="contains" type="text" placeholder="eg: hot"/>
                                             </div>
                                             <div class="form-group">
-                                                <label for="contain">Tagged Uni</label>
-                                                <input class="form-control" name="tagged" type="text" />
+                                                <label for="contain">Uni</label>
+                                                <input class="form-control" name="tagged" type="text" placeholder="eg: abc1234"/>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="contain">Tags</label>
+                                                <input class="form-control" name="tags" type="text" placeholder="eg: butler"/>
                                             </div>
                                             <button type="submit" onclick="$('#search_form').get(0).submit();" class="btn btn-primary"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
                                         </form>
@@ -288,54 +292,56 @@
                             <a href="#" class="btn btn-default stat-item">
                                 <i class="fa fa-share icon"></i>
                             </a>
+
+
                         </div>
                     </div>
                     <div class="post-footer">
+                        {% if post.display_guess %}
                         <div class="input-group">
-                            <input class="form-control" style="z-index:1" placeholder="Add a comment" type="text">
-                    <span class="input-group-addon">
-                        <a href="#"><i class="fa fa-edit"></i></a>
-                    </span>
+
+                            <input class="form-control"  id="guess_input{{ post.pid }}" style="z-index:1" placeholder="You've been tagged! You've got {{ post.remaining}} guesses left to try and match ;)" type="text">
+
+                            <span class="input-group-addon">
+                                <a title="Click here to submit a guess" onclick="sendGuess({{ post.pid }})">
+                                    <div class="stacked-icons">
+                                      <span class="fa-stack" style="height:1.7em">
+                                        <i class="fa fa-heart-o fa-stack-2x text-danger"></i>
+                                        <strong class="fa-stack calendar-text">{{ post.remaining }}</strong>
+                                      </span>
+                                    </div>
+                                    </a>
+                            </span>
+
+                        </div>
+                        <hr/>
+                        {% endif %}
+
+                        <div class="input-group">
+
+                            <input class="form-control"  id="comment_input{{ post.pid }}" style="z-index:1" placeholder="Add a comment" type="text">
+
+                            <span class="input-group-addon">
+                                <a onclick="sendComment({{post.pid}})"><i class="fa fa-edit"></i></a>
+                            </span>
+
                         </div>
                         <ul class="comments-list">
+                            {% for comment in post.comments %}
                             <li class="comment">
-                                <a class="pull-left" href="#">
+                                <!--<a class="pull-left" href="#">
                                     <img class="avatar" src="http://bootdey.com/img/Content/user_1.jpg" alt="avatar">
-                                </a>
-                                <div class="comment-body">
+                                </a>-->
+                                <div class="comment-body" style="margin-left:20px;">
                                     <div class="comment-heading">
                                         <h4 class="user">Gavino Free</h4>
-                                        <h5 class="time">5 minutes ago</h5>
+                                        <h5 class="time">{{ comment.comment_created }}</h5>
                                     </div>
-                                    <p>Sure, oooooooooooooooohhhhhhhhhhhhhhhh</p>
+                                    <p>{{ comment.comment_body }}</p>
                                 </div>
-                                <!--<ul class="comments-list">
-                                    <li class="comment">
-                                        <a class="pull-left" href="#">
-                                            <img class="avatar" src="http://bootdey.com/img/Content/user_3.jpg" alt="avatar">
-                                        </a>
-                                        <div class="comment-body">
-                                            <div class="comment-heading">
-                                                <h4 class="user">Ryan Haywood</h4>
-                                                <h5 class="time">3 minutes ago</h5>
-                                            </div>
-                                            <p>Relax my friend</p>
-                                        </div>
-                                    </li>
-                                    <li class="comment">
-                                        <a class="pull-left" href="#">
-                                            <img class="avatar" src="http://bootdey.com/img/Content/user_2.jpg" alt="avatar">
-                                        </a>
-                                        <div class="comment-body">
-                                            <div class="comment-heading">
-                                                <h4 class="user">Gavino Free</h4>
-                                                <h5 class="time">3 minutes ago</h5>
-                                            </div>
-                                            <p>Ok, cool.</p>
-                                        </div>
-                                    </li>
-                                </ul>-->
+
                             </li>
+                            {% endfor %}
                         </ul>
                     </div>
                 </div>
@@ -379,13 +385,6 @@
 </footer>
 
 
-<script src="{{ url_for('static', filename='js/vendor/jquery.js') }}"></script>
-<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js" integrity="sha512-K1qjQ+NcF2TYO/eI3M6v8EiNYZfA95pQumfvcVrTHtwQVDG+aHRqLi/ETn2uB+1JqwYqVG3LIvdm9lj6imS/pQ==" crossorigin="anonymous"></script>
-<script src="{{ url_for('static', filename='js/foundation.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/login.js') }}"></script>
 
-<script>
-    $(document).foundation();
-</script>
 </body>
 </html>

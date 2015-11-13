@@ -1,0 +1,56 @@
+<div class="modal fade" id="squarespaceModal" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+	<div class="modal-content">
+		<div class="modal-header">
+			<button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span><span class="sr-only">Close</span></button>
+			<h3 class="modal-title" id="lineModalLabel">New Post</h3>
+		</div>
+		<div class="modal-body">
+
+            <!-- content goes here -->
+            <form method="post" action="/post" id="post_form">
+                <textarea rows="6" name="post_body" placeholder="Let us hear who you admire! (You can use '#' to tag ideas and '@' to tag unis)" ></textarea>
+                {% if not current_user.is_authenticated %}
+                <div class="checkbox">
+                    <label>
+                        <input type="checkbox" disabled checked name="is_anonymous"> Post Anonymously?
+                    </label>
+                </div>
+                <div class="checkbox">
+                    <label>
+                        <input type="checkbox" disabled name="allow_guesses"> Allow 3 Guesses  (Login to use this feature!)
+                    </label>
+                </div>
+                {% else %}
+                <div class="checkbox">
+                    <label>
+                        <input type="checkbox" checked name="is_anonymous"> Post Anonymously?
+                    </label>
+                </div>
+                <div class="checkbox">
+                    <label>
+                        <input type="checkbox" name="allow_guesses"> Allow 3 Guesses (This will allow the person you tag to try and guess your uni, if they do, you will both be emailed about it! Must tag user with @UNI in the post for it to work)
+                    </label>
+                </div>
+                {% endif %}
+
+                <div class="modal-footer">
+                    <div class="btn-group btn-group-justified" aria-label="group button">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-default" data-dismiss="modal"  role="button">Close</button>
+                        </div>
+                        <div class="btn-group btn-delete hidden" role="group">
+                            <button type="button" id="delImage" class="btn btn-default btn-hover-red" data-dismiss="modal"  role="button">Cancel</button>
+                        </div>
+                        <div class="btn-group">
+                            <button type="submit" id="post_button" class="btn btn-default btn-hover-green" onclick="$('#post_form').get(0).submit();" >Post</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+		</div>
+
+	</div>
+  </div>
+</div>
