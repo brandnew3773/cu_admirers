@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-
+<!--
     <div class="container">
         <div class="row">
             <div class="col-md-9">
@@ -41,10 +41,10 @@
             <div class="col-md-3"></div>
         </div>
     </div>
-    <hr/>
+    <hr/> -->
     {% for post in posts %}
     <div class="container">
-        <div class="col-sm-8">
+        <div class="col-sm-8 pull-right" style="margin-right:420px">
             <div class="panel panel-white post panel-shadow" style="background:white">
                 <div class="post-heading">
                     <!--<div class="pull-left image">
@@ -66,10 +66,10 @@
                 <div class="post-description">
                     <p>{{ post.post_body }}</p>
                     <div class="stats">
-                        <a href="/like?pid={{ post.pid }}" class="btn btn-default stat-item">
+                        <a href="/like?pid={{ post.pid }}" class="btn btn-primary stat-item">
                             <i class="fa fa-thumbs-up icon"></i>{{ post.like_count if post.like_count != None else 0 }}
                         </a>
-                        <a href="#" class="btn btn-default stat-item">
+                        <a href="#" class="btn btn-primary stat-item">
                             <i class="fa fa-share icon"></i>
                         </a>
 

@@ -3,9 +3,9 @@
             <div class="section-container vertical-nav" data-section data-options="deep_linking: false; one_up: true">
                 <section class="section">
                     {% if current_user.is_authenticated %}
-                         Hi {{ current_user.first_name }}!
+                         <h5 class="title" style="color:white"><i>Hi {{ current_user.first_name }}!</i></h5>
                     {% else %}
-                        <a href="#" class="" role="button" data-toggle="modal" data-target="#login-modal">Login</a>
+                        <h5 class="title"><a href="#" class="" role="button" data-toggle="modal" data-target="#login-modal">Login</a></h5>
                     {% endif %}
                 </section>
                 {% if current_user.is_authenticated %}

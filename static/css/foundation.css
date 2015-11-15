@@ -2735,10 +2735,10 @@ meta.foundation-mq-topbar {
 .panel {
   border-style: solid;
   border-width: 1px;
-  border-color: #d8d8d8;
+  border-color: #00004d;
   margin-bottom: 1.25rem;
   padding: 1.25rem;
-  background: #f2f2f2;
+  background: #00004d;
   color: #333333; }
   .panel > :first-child {
     margin-top: 0; }
@@ -3485,11 +3485,11 @@ td {
 
 /* Default Link Styles */
 a {
-  color: #2ba6cb;
+  color: #ffffff;
   line-height: inherit;
   text-decoration: none; }
   a:hover, a:focus {
-    color: #258faf; }
+    color: #ffffff; }
   a img {
     border: none; }
 
@@ -3511,8 +3511,8 @@ p {
 
 /* Default header styles */
 h1, h2, h3, h4, h5, h6 {
-  color: #222222;
-  font-family: "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;
+  color: #ffffff;
+  font-family: Lato, "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;
   font-style: normal;
   font-weight: normal;
   line-height: 1.4;
@@ -3520,7 +3520,7 @@ h1, h2, h3, h4, h5, h6 {
   margin-top: 0.2rem;
   text-rendering: optimizeLegibility; }
   h1 small, h2 small, h3 small, h4 small, h5 small, h6 small {
-    color: #6f6f6f;
+    color: #ffffff;
     font-size: 60%;
     line-height: 0; }
 
