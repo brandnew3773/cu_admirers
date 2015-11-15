@@ -1,3 +1,4 @@
+import re
 from sqlalchemy import *
 from datetime import datetime
 from passlib.hash import sha256_crypt
@@ -26,6 +27,8 @@ def pretty_date(time=False):
     pretty string like 'an hour ago', 'Yesterday', '3 months ago',
     'just now', etc
     """
+    if type(time) == unicode:
+        time = parse(time)
     time = time - timedelta(hours=5)
     now = datetime.now()
     if type(time) is int:
@@ -66,10 +69,11 @@ def pretty_date(time=False):
 
 class Filter():
 
-    def __init__(self, lhs, op, rhs):
+    def __init__(self, lhs, op, rhs, lhs_base=None):
         self.lhs = db_mapping.get(lhs, lhs)
         self.rhs = db_mapping.get(rhs, rhs)
         self.op = op
+        self.lhs_base = lhs_base
 
     @classmethod
     def and_reduce(cls, filters):
@@ -91,8 +95,8 @@ class Filter():
         return "%s %s %s" % (self.lhs, self.op, self.rhs)
 
 class Equal(Filter):
-    def __init__(self, lhs, rhs):
-        Filter.__init__(self, lhs, "=", rhs)
+    def __init__(self, lhs, rhs, lhs_base=None):
+        Filter.__init__(self, lhs, "=", rhs, lhs_base)
 
 class NotEqual(Filter):
     def __init__(self, lhs, rhs):
@@ -175,18 +179,12 @@ class Table():
     def __str__(self):
         return str(self.__dict__)
 
-    #def __setattr__(self, key, value):
-    #    self.dict[key] = value
-
-
     @classmethod
     def get_all(cls, conn, joins):
         return  cls.select([], joins, conn)
 
     @classmethod
     def _convert(cls, items):
-        #for item in items:
-        #    print(dict(item))
         return [cls(**x).prepare() for x in items]
 
     @classmethod
@@ -200,7 +198,8 @@ class Table():
         if filters:
             query += " WHERE "
         for filter in filters:
-            query += "( %s.%s )" % (cls.table, filter.compose())
+            print ("LHS BASE", filter.lhs_base)
+            query += "( %s.%s )" % (cls.table if filter.lhs_base is None else filter.lhs_base, filter.compose())
         if not query[-1] == ";":
             query += ";"
         print(query)
@@ -209,53 +208,30 @@ class Table():
 
     def prepare(self):
         return self
-    #@classmethod
-    #def create_table(cls):
 
-
-
-
-#def to_table(cls):
-#    cls.primary_key = cls.primary_key
-#    cls.__name__ = cls.table_name
-class Response(Table, object):
-    table = "response"
-    primary_key = "rid"
-
-    def __init__(self, pid, sid=None, rid=None, response_created=None):
-        self.rid = rid
-        self.pid = pid
-        self.sid = sid
-        self.response_created = response_created
-
-    def create_table(cls, conn, drop=True):
-        if drop:
-            conn.execute("""DROP TABLE IF EXISTS response;""")
-        conn.execute("""CREATE TABLE IF NOT EXISTS response (
-          rid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-          pid INTEGER NOT NULL,
-          sid INTEGER,
-          response_created timestamp DEFAULT CURRENT_TIMESTAMP,
-        );""")
 
 class Like(Table, object):
     table = "post_like"
-    primary_key = "pid"
+    primary_key = "lid"
 
-    def __init__(self, pid, like_count=0, response_created=None):
+    def __init__(self, pid, sid, lid=None, response_created=None):
         self.pid = pid
+        self.lid = lid
+        self.sid = sid
         self.response_created = response_created
-        self.like_count = like_count
+
 
     @classmethod
     def create_table(cls, conn, drop=True):
         if drop:
             conn.execute("""DROP TABLE IF EXISTS post_like;""")
         conn.execute("""CREATE TABLE IF NOT EXISTS post_like (
-          pid INTEGER PRIMARY KEY,
+          lid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
           response_created timestamp DEFAULT CURRENT_TIMESTAMP,
-          like_count INTEGER DEFAULT (0),
-          FOREIGN KEY(pid) REFERENCES post(pid)
+          pid INTEGER NOT NULL,
+          sid INTEGER NOT_NULL,
+          FOREIGN KEY(pid) REFERENCES post(pid),
+          FOREIGN KEY(sid) REFERENCES web_user(sid)
         );""")
 
 
@@ -264,12 +240,15 @@ class Post(Table, object):
     table = "post"
     primary_key = "pid"
 
-    def __init__(self, post_body, approved, poster, allow_guesses=False, post_created=None, pid=None, **kwargs):
+    def __init__(self, post_body, approved, poster, allow_guesses=False,
+                 tags=None, post_created=None, pid=None, like_count=0, **kwargs):
         self.post_body = post_body
         self.approved = approved
         self.poster = poster
         self.allow_guesses = allow_guesses
+        self.tags = tags
         self.pid = pid
+        self.like_count = like_count
         self.post_created = post_created
         for k, v in kwargs.items():
             self.__dict__[k] = v
@@ -283,10 +262,34 @@ class Post(Table, object):
                 self.__dict__[k] = v[1]
                 print("preparing")
                 print(self.__dict__[k])
-        if self.__dict__["post_created"] != None:
-            new_date = pretty_date(parse(self.__dict__["post_created"]))
-            self.__dict__["post_created"] = new_date
+        #if self.__dict__["post_created"] != None:
+        #    print self.__dict__["post_created"]
+        #    new_date = pretty_date(parse(self.__dict__["post_created"]))
+        #    self.__dict__["post_created"] = new_date
         return self
+
+    @classmethod
+    def prepare_view(cls, user, posts, conn):
+        match_format = r"<a href='/search/user/%s'>%s</a>"
+        tag_format = r"<a href='/search/tag/%s'>%s</a>"
+        posts = posts[::-1]
+        for post in posts:
+            if hasattr(post, "tagged") and hasattr(user, "uni") and post.tagged == user.uni:
+                post.display_guess = True
+            else:
+                post.display_guess = False
+            post.comments = Comment.select([Equal("pid", post.pid)], [], conn)[::-1]
+            body = post.post_body
+            matches = re.findall(r"(@[^_\W]*)", body)
+            for match in matches:
+                print "MATCH", match
+                body = body.replace(match, match_format % (match.replace("@", ""), match))
+            tags = re.findall(r"(#[^_\W]*)", body)
+            for tag in tags:
+                body = body.replace(tag, tag_format % (tag.replace("#", ""), tag))
+            post.post_created = pretty_date(post.post_created)
+            post.post_body = body
+        return posts
 
     @classmethod
     def create_table(cls, conn, drop=True):
@@ -295,11 +298,16 @@ class Post(Table, object):
         conn.execute("""CREATE TABLE IF NOT EXISTS post (
           pid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
           post_body text,
+          like_count INTEGER DEFAULT 0,
           post_created timestamp DEFAULT CURRENT_TIMESTAMP,
           approved boolean,
+          tags text,
           allow_guesses boolean,
           poster integer
         );""")
+
+    def update_save(self, conn):
+        self.save(conn)
 
 
 class Comment(Table, object):
@@ -325,9 +333,9 @@ class Comment(Table, object):
                 self.__dict__[k] = v[1]
                 print("preparing")
                 print(self.__dict__[k])
-        if self.__dict__["comment_created"] != None:
-            new_date = pretty_date(parse(self.__dict__["comment_created"]))
-            self.__dict__["comment_created"] = new_date
+        #if self.__dict__["comment_created"] != None:
+        #    new_date = pretty_date(parse(self.__dict__["comment_created"]))
+        #    self.__dict__["comment_created"] = new_date
         return self
 
     @classmethod

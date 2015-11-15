@@ -64,11 +64,17 @@
                     </div>
                 </div>
                 <div class="post-description">
-                    <p>{{ post.post_body }}</p>
+                    <p>{{ post.post_body|safe }}</p>
                     <div class="stats">
-                        <a href="/like?pid={{ post.pid }}" class="btn btn-default stat-item">
-                            <i class="fa fa-thumbs-up icon"></i>{{ post.like_count if post.like_count != None else 0 }}
-                        </a>
+                        {% if current_user.is_authenticated %}
+                            <a href="/like?pid={{ post.pid }}" class="btn btn-default stat-item">
+                                <i class="fa fa-thumbs-up icon"></i>{{ post.like_count if post.like_count != None else 0 }}
+                            </a>
+                        {% else %}
+                            <a href="#" class="btn btn-default disabled stat-item">
+                                <i class="fa fa-thumbs-up icon"></i>{{ post.like_count if post.like_count != None else 0 }}
+                            </a>
+                        {% endif %}
                         <a href="#" class="btn btn-default stat-item">
                             <i class="fa fa-share icon"></i>
                         </a>
