@@ -129,7 +129,7 @@ def prepare_posts(user, posts):
 def index():
 
     """
-    #User.create_table(g.conn)
+    User.create_table(g.conn)
     Post.create_table(g.conn)
     Comment.create_table(g.conn)
     GuessSetting.create_table(g.conn)
