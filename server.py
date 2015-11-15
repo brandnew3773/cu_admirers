@@ -21,7 +21,7 @@ import os
 import re
 from sqlalchemy import *
 from sqlalchemy.pool import NullPool
-from utility import User, Equal, Post, Response, Like, Contains, And, Or, Filter, Comment, GuessSetting
+from utility import User, Equal, Post, Like, Contains, And, Or, Filter, Comment, GuessSetting
 from flask import Flask, request, render_template, g, redirect, Response, url_for, flash, session
 from flask.ext.login import LoginManager, UserMixin, login_required, login_user, current_user, logout_user
 
@@ -115,15 +115,7 @@ def teardown_request(exception):
         pass
 
 
-def prepare_posts(user, posts):
-    posts = posts[::-1]
-    for post in posts:
-        if hasattr(post, "tagged") and post.tagged == user.uni:
-            post.display_guess = True
-        else:
-            post.display_guess = False
-        post.comments = Comment.select([Equal("pid", post.pid)], [], g.conn)[::-1]
-    return posts
+
 
 @app.route('/', methods=["POST", "GET"])
 def index():
@@ -135,13 +127,12 @@ def index():
     GuessSetting.create_table(g.conn)
     Like.create_table(g.conn)
     """
-
+    print(request.headers.get('User-Agent'))
     user = current_user
-    posts = Post.get_all(g.conn, [("pid", Like, "pid"),
-                                  ("pid", GuessSetting, "pid")])
+    posts = Post.get_all(g.conn, [("pid", GuessSetting, "pid")])
     if posts:
         print(posts[0])
-    posts = prepare_posts(user, posts)
+    posts = Post.prepare_view(user, posts, g.conn)
     return render_template("main.html", **{"posts": posts})
 
 
@@ -187,20 +178,24 @@ def comment():
 
 @app.route('/like', methods=['get'])
 def like():
-    print("Like route")
-    #Like.create_table(g.conn)
+    if type(current_user.is_authenticated) == bool or not current_user.is_authenticated():
+        print("not authenticated")
+        return redirect("/")
+
     pid = int(request.args.get("pid"))
-    likes = Like.select([Equal("pid", pid)], [], g.conn)
-    print(likes)
-    if not likes:
-        print "created like"
-        like = Like(pid=pid, like_count=1)
-        like.weak_save(g.conn, force_insert=True)
+    post = Post.select([Equal("pid", "pid")], [], g.conn)
+    filters = [Equal("pid", pid), Equal("sid", current_user.sid)]
+    filter = Filter.and_reduce(filters)
+    likes = Like.select(filter, [], g.conn)
+    if not likes and post:
+        print("Like")
+        post = post[0]
+        post.like_count += 1
+        post.save(g.conn)
+        l = Like(pid=pid, sid=current_user.sid)
+        l.save(g.conn)
     else:
-        print "updated like"
-        like = likes[0]
-        like.like_count += 1
-        like.weak_save(g.conn)
+        print("Already exists!")
 
     return redirect("/")
 
@@ -230,6 +225,34 @@ def guess():
     gs.save(g.conn)
     return redirect("/")
 
+@app.route('/search/user/<user>', methods=['GET'])
+def search_user(user):
+    filters = []
+    if user != "":
+        filters.append(Equal("tagged", "'%s'" %user, GuessSetting.table))
+    posts = Post.select(filters, [("pid", GuessSetting, "pid")], g.conn)
+    posts = Post.prepare_view(current_user, posts, g.conn)
+    return render_template("main.html", **{"posts": posts})
+
+@app.route('/search/id/<pid>', methods=['GET'])
+def search_pid(pid):
+    filters = []
+    if pid != "":
+        filters.append(Equal("pid", pid))
+    posts = Post.select(filters, [], g.conn)
+    posts = Post.prepare_view(current_user, posts, g.conn)
+    return render_template("main.html", **{"posts": posts})
+
+@app.route('/search/tag/<tag>', methods=['GET'])
+def search_tag(tag):
+    filters = []
+    if tag != "":
+        filters.append(Contains("tags", tag))
+    posts = Post.select(filters, [], g.conn)
+    posts = Post.prepare_view(current_user, posts, g.conn)
+    return render_template("main.html", **{"posts": posts})
+
+
 @app.route('/search', methods=['POST'])
 def search():
     text = request.json
@@ -246,9 +269,9 @@ def search():
     if tagged != "":
         filters.append(Contains("post_body", tagged))
     filters = Filter.and_reduce(filters)
-    posts = Post.select(filters, [("pid", Like, "pid")], g.conn)
+    posts = Post.select(filters, [], g.conn)
 
-    posts = prepare_posts(current_user, posts)
+    posts = Post.prepare_view(current_user, posts, g.conn)
     return render_template("main.html", **{"posts": posts})
 
 @app.route('/own_posts', methods=['GET'])
@@ -257,9 +280,8 @@ def own_posts():
     filters = []
     user = current_user
     filters.append(Equal("poster", user.sid))
-    posts = Post.select(filters, [("pid", Like, "pid"),
-                                  ("pid", GuessSetting, "pid")], g.conn)
-    posts = prepare_posts(user, posts)
+    posts = Post.select(filters, [("pid", GuessSetting, "pid")], g.conn)
+    posts = Post.prepare_view(user, posts, g.conn)
     return render_template("main.html", **{"posts": posts})
 
 @app.route('/logout', methods=['GET'])
@@ -278,7 +300,7 @@ def post():
     allow_guesses = request.form.get("allow_guesses", None) == "on"
     user = current_user
 
-    if not user.is_authenticated():
+    if type(user.is_authenticated) == bool or not user.is_authenticated():
         print("not authenticated")
         is_anonymous = True
         allow_guesses = False
@@ -291,13 +313,17 @@ def post():
     m = re.search(r"@([^_\W]*)", post_body)
     if m and allow_guesses:
         tagged = m.group(1)
+    tags = re.findall(r"#([^_\W]*)", post_body)
+    tag_s = "" if tags else None
+    for tag in tags:
+        tag_s += "%s|" % tag
     guesses = NUMBER_GUESSES if allow_guesses else 0
     uni = user.uni if allow_guesses else None
 
-    p = Post(post_body, False, poster, allow_guesses=allow_guesses)
+    p = Post(post_body, False, poster, allow_guesses=allow_guesses, tags=tag_s)
     p.save(g.conn)
-    like = Like(pid=p.pid, like_count=0)
-    like.save(g.conn)
+    #like = Like(pid=p.pid, like_count=0)
+    #like.save(g.conn)
     gs = GuessSetting(p.pid, poster=uni, tagged=tagged, num_guesses=guesses,
                       remaining=guesses)
     gs.save(g.conn)

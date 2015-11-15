@@ -147,7 +147,7 @@ function sendGuess(pid){
     });
 }
 
-$(document).ready(function(){
+/*$(document).ready(function(){
     $('input[name=allow_guesses]').change(function(){
 
         if($(this).is(':checked'))
@@ -171,4 +171,4 @@ $(document).ready(function(){
             }
         }
     })
-});
+});*/
