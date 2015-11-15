@@ -2,8 +2,11 @@
     <div class="large-12 columns">
         <div class="panel" style="max-height: 125px;">
             <div style="width:50%"><h1><a href="/">CU Admirers</a></h1></div>
-
-            <p class="" style="width:27%; float:left;"><a href="#" class="btn btn-primary" role="button" data-toggle="modal" data-target="#login-modal">Open Login Modal</a></p>
+            {% if current_user.is_authenticated %}
+                <p class="" style="width:27%; float:left;"><a href="#" class="btn btn-primary disabled" role="button" data-toggle="modal" data-target="#login-modal">Open Login Modal</a></p>
+            {% else %}
+                <p class="" style="width:27%; float:left;"><a href="#" class="btn btn-primary" role="button" data-toggle="modal" data-target="#login-modal">Open Login Modal</a></p>
+            {% endif %}
             <p class="" style="width:10%; float:left;"><a href="#" class="btn btn-primary" role="button" data-toggle="modal" data-target="#squarespaceModal">Post</a></p>
             <!--<div class="center"><button data-toggle="modal" data-target="#squarespaceModal" class="btn btn-primary center-block">Post</button></div>-->
 
