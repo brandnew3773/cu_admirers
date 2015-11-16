@@ -18,7 +18,13 @@ sqlite_mapping = {
     None: 'null'
 }
 
-db_mapping = sqlite_mapping
+postgres_mapping = {
+    False: "false",
+    True: "true",
+    None: 'null'
+}
+
+db_mapping = postgres_mapping
 
 # Function taken from stackoverflow:
 # http://stackoverflow.com/questions/1551382/user-friendly-time-format-in-python
@@ -71,8 +77,14 @@ def pretty_date(time=False):
 class Filter():
 
     def __init__(self, lhs, op, rhs, lhs_base=None):
-        self.lhs = db_mapping.get(lhs, lhs)
-        self.rhs = db_mapping.get(rhs, rhs)
+        if type(lhs) == bool:
+            self.lhs = db_mapping.get(lhs, lhs)
+        else:
+            self.lhs = lhs
+        if type(rhs) == bool:
+            self.rhs = db_mapping.get(rhs, rhs)
+        else:
+            self.rhs = rhs
         self.op = op
         self.lhs_base = lhs_base
 
@@ -113,7 +125,7 @@ class Or(Filter):
 
 class Contains(Filter):
     def __init__(self, lhs, rhs):
-        Filter.__init__(self, lhs, " like ", "'%"+rhs+"%'")
+        Filter.__init__(self, lhs, " like ", "'%%"+rhs+"%%'")
 
 
 
@@ -127,7 +139,7 @@ class Table():
         if self.__dict__[self.primary_key] is None or force_insert:
             self.insert(values)
             if not force_insert:
-                res = Table.connection.execute("Select last_insert_rowid()").fetchone()[0]
+                res = Table.connection.execute("Select LASTVAL()").fetchone()[0]
                 self.__dict__[self.primary_key] = res
                 print("assigned primary key")
         else:
@@ -143,23 +155,61 @@ class Table():
     # Sanitize and do type conversions
     def _prepare_dict(self, dict):
         for k, v in dict.items():
-            if v in db_mapping.keys():
-                dict[k] = db_mapping[v]
+            if "_created" in k:
+                del dict[k]
+            #if type(v) == bool:
+            #    dict[k] = db_mapping[v]
             elif type(v) == str or type(v) == unicode and len(v) > 0 and not v[0] == "'":
-                dict[k] = "%s" % json.dumps(v)
+                dict[k] = "%s" % v
+
         return dict
 
-    def insert(self, dict):
+    def insert2(self, dict):
         dict = self._prepare_dict(dict)
         query = "INSERT INTO %s (" % str(self.table)
         items = sorted(dict.keys())
-        query += ", ".join(str(x) for x in items if not x == self.primary_key)
+        query += " ".join(str(x) for x in items if not x == self.primary_key)
         query += ") VALUES ("
         query += ", ".join(str(dict[x]) for x in items if not x == self.primary_key)
         query += ");"
         print("Inserting:")
         print(query)
         return Table.connection.execute(query)
+
+    def insert3(self, dict):
+        dict = self._prepare_dict(dict)
+        vals = []
+        query = "INSERT INTO %s (" % str(self.table)
+        vals.append(self.table)
+        items = sorted(dict.keys())
+        for x in [t for t in items if not t == self.primary_key]:
+            query += "%s"
+            vals.append(x)
+        #query += ", ".join(str(x) for x in items if not x == self.primary_key)
+        query += ") VALUES ("
+        for x in [t for t in items if not t == self.primary_key]:
+            query += ", %s"
+            vals.append(dict[x])
+        #query += ", ".join(str(dict[x]) for x in items if not x == self.primary_key)
+        query += ");"
+        print("Inserting:")
+        print(query, vals)
+        return Table.connection.execute(query, vals)
+
+    def insert(self, dict):
+        dict = self._prepare_dict(dict)
+        query = "INSERT INTO %s (" % self.table
+        vals = []
+        items = sorted(dict.keys())
+        query += ", ".join(x for x in items if not x == self.primary_key)
+        #vals += [x for x in items if not x == self.primary_key]
+        query += ") VALUES ("
+        query += ", ".join("%s" for x in items if not x == self.primary_key)
+        query += ");"
+        vals += [dict[x] for x in items if not x == self.primary_key]
+        print("Inserting:")
+        print(query, vals)
+        return Table.connection.execute(query, vals)
 
     def weak_insert(self, dict):
         dict = self._prepare_dict(dict)
@@ -169,16 +219,22 @@ class Table():
         query += ") VALUES ("
         query += ", ".join(str(dict[x]) for x in items)
         query += ");"
-        print("Inserting:")
-        print(query)
+        print("Inserting Query:", query)
         return Table.connection.execute(query)
 
     def update(self):
         query = "UPDATE %s SET " % self.table
         pd = self._prepare_dict(self.__dict__)
-        query += ", ".join(" %s = %s" % (k, v) for k, v in pd.items() if not k == self.primary_key)
-        query += " WHERE %s = %s;" % (self.primary_key, pd[self.primary_key])
-        Table.connection.execute(query)
+        query += ", ".join(k + " = %s" for k, v in pd.items() if not k == self.primary_key)
+        vals = []
+        for k, v in [x for x in pd.items() if not x[0] == self.primary_key]:
+            #vals.append(k)
+            vals.append(v)
+        query += " WHERE " + self.primary_key + " = %s;"
+        #vals.append(self.primary_key)
+        vals.append(pd[self.primary_key])
+        print(query, vals)
+        Table.connection.execute(query, vals)
 
     def __str__(self):
         return str(self.__dict__)
@@ -230,12 +286,13 @@ class Like(Table, object):
         if drop:
             cls.connection.execute("""DROP TABLE IF EXISTS post_like;""")
         cls.connection.execute("""CREATE TABLE IF NOT EXISTS post_like (
-          lid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+          lid SERIAL,
           response_created timestamp DEFAULT CURRENT_TIMESTAMP,
           pid INTEGER NOT NULL,
-          sid INTEGER NOT_NULL,
+          sid INTEGER NOT NULL,
           FOREIGN KEY(pid) REFERENCES post(pid),
-          FOREIGN KEY(sid) REFERENCES web_user(sid)
+          FOREIGN KEY(sid) REFERENCES web_user(sid),
+          PRIMARY KEY(lid)
         );""")
 
 
@@ -272,6 +329,7 @@ class Post(Table, object):
                 post.display_guess = True
             else:
                 post.display_guess = False
+            print(post)
             post.comments = Comment.prepare_view(user, Comment.select([Equal("pid", post.pid)], [("poster", User, "sid")])[::-1])
             body = post.post_body
             tags = re.findall(r"(#[^_\W]+)", body)
@@ -292,16 +350,18 @@ class Post(Table, object):
     @classmethod
     def create_table(cls, drop=True):
         if drop:
-            cls.connection.execute("""DROP TABLE IF EXISTS post;""")
+            cls.connection.execute("""DROP TABLE IF EXISTS post CASCADE;""")
         cls.connection.execute("""CREATE TABLE IF NOT EXISTS post (
-          pid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+          pid SERIAL,
           post_body text,
           like_count INTEGER DEFAULT 0,
           post_created timestamp DEFAULT CURRENT_TIMESTAMP,
           approved boolean,
           tags text,
           allow_guesses boolean,
-          poster integer
+          poster integer,
+          PRIMARY KEY(pid),
+          FOREIGN KEY(poster) REFERENCES web_user(sid)
         );""")
 
     def update_save(self):
@@ -339,13 +399,15 @@ class Comment(Table, object):
     @classmethod
     def create_table(cls, drop=True):
         if drop:
-            cls.connection.execute("""DROP TABLE IF EXISTS comment;""")
+            cls.connection.execute("""DROP TABLE IF EXISTS comment CASCADE;""")
         cls.connection.execute("""CREATE TABLE IF NOT EXISTS comment (
-          cid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+          cid SERIAL,
           comment_body text,
           pid INTEGER NOT NULL,
           comment_created timestamp DEFAULT CURRENT_TIMESTAMP,
-          poster integer
+          poster integer,
+          FOREIGN KEY(pid) REFERENCES post(pid),
+          FOREIGN KEY(poster) REFERENCES web_user(sid)
         );""")
 
     @classmethod
@@ -369,14 +431,16 @@ class GuessSetting(Table, object):
     @classmethod
     def create_table(cls, drop=True):
         if drop:
-            cls.connection.execute("""DROP TABLE IF EXISTS guess_setting;""")
+            cls.connection.execute("""DROP TABLE IF EXISTS guess_setting CASCADE;""")
         cls.connection.execute("""CREATE TABLE IF NOT EXISTS guess_setting (
-          gsid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+          gsid SERIAL,
           pid INTEGER NOT NULL,
-          tagged INTEGER,
+          tagged TEXT,
           num_guesses INTEGER,
           remaining INTEGER,
-          matched BOOLEAN
+          matched BOOLEAN,
+          PRIMARY KEY(gsid),
+          FOREIGN KEY(pid) REFERENCES post(pid) ON DELETE CASCADE
         );""")
 
 class User(Table, object):
@@ -425,15 +489,16 @@ class User(Table, object):
     @classmethod
     def create_table(cls, drop=True):
         if drop:
-            cls.connection.execute("""DROP TABLE IF EXISTS web_user;""")
+            cls.connection.execute("""DROP TABLE IF EXISTS web_user CASCADE;""")
         cls.connection.execute("""CREATE TABLE IF NOT EXISTS web_user (
-        sid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+        sid SERIAL,
         first_name text,
         last_name text,
         email text NOT NULL,
-        uni text,
+        uni text NOT NULL,
         email_verified boolean,
-        password text NOT NULL
+        password text NOT NULL,
+        PRIMARY KEY(sid)
        );""")
 
 

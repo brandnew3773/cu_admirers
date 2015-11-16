@@ -61,6 +61,8 @@ NUMBER_GUESSES = 3
 #     DATABASEURI = "postgresql://ewu2493:foobar@w4111db1.cloudapp.net:5432/proj1part2"
 #
 DATABASEURI = "sqlite:///test.db"
+DATABASEURI = "postgresql://jjm2212:421@w4111db1.cloudapp.net:5432/proj1part2"
+
 
 
 #
@@ -129,11 +131,8 @@ def index(alert=None):
     Like.create_table()
     """
 
-    print(request.headers.get('User-Agent'))
     user = current_user
     posts = Post.get_all([("pid", GuessSetting, "pid"), ("poster", User, "sid")])
-    if posts:
-        print(posts[0])
     posts = Post.prepare_view(user, posts)
     return render_template("main.html", **{"posts": posts, "alert": alert})
 
@@ -142,8 +141,10 @@ def index(alert=None):
 def load_user(email):
     user = None
     try:
-        user = User.select([Equal("email", "'%s'" % email)], [])[0]
+        user = User.select([Equal("email", "'%s'" % email)], [])
+        user = user[0] if user else None
     except BaseException as e:
+        flash("Login failed")
         print e
     return user
 
