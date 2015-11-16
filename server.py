@@ -123,7 +123,7 @@ def teardown_request(exception):
 @app.route('/', methods=["POST", "GET"])
 def index(alert=None):
 
-    """ 
+    """
     User.create_table()
     Post.create_table()
     Comment.create_table()
@@ -301,21 +301,17 @@ def faqs():
 
 @app.route('/post', methods=['POST'])
 def post():
-    print("Creating post")
     post_body = request.form["post_body"]
     is_anonymous = request.form.get("is_anonymous", None) == "on"
     allow_guesses = request.form.get("allow_guesses", None) == "on"
     user = current_user
 
     if type(user.is_authenticated) == bool or not user.is_authenticated():
-        print("not authenticated")
         is_anonymous = True
         allow_guesses = False
-    print "Is anonymous?", is_anonymous
 
     poster = tagged = None
     if not is_anonymous or allow_guesses:
-        print("Not anonymous")
         poster = user.sid
     m = re.search(r"@([^_\W]+)", post_body)
     if m:
@@ -325,12 +321,10 @@ def post():
     for tag in tags:
         tag_s += "%s|" % tag
     guesses = NUMBER_GUESSES if allow_guesses else 0
-    print "allow guesses?", allow_guesses
     p = Post(post_body, approved=False, poster=poster, allow_guesses=allow_guesses, tags=tag_s)
     p.save()
     #like = Like(pid=p.pid, like_count=0)
     #like.save(g.conn)
-    print p
     gs = GuessSetting(p.pid, tagged=tagged, num_guesses=guesses,
                       remaining=guesses)
     gs.save()

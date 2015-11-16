@@ -36,7 +36,7 @@ def pretty_date(time=False):
     """
     if type(time) == unicode:
         time = parse(time)
-    time = time - timedelta(hours=5)
+    time = time
     now = datetime.now()
     if type(time) is int:
         diff = now - datetime.fromtimestamp(time)
@@ -46,7 +46,6 @@ def pretty_date(time=False):
         diff = now - now
     second_diff = diff.seconds
     day_diff = diff.days
-    print(day_diff)
     if day_diff < 0:
         return ''
 
@@ -141,16 +140,9 @@ class Table():
             if not force_insert:
                 res = Table.connection.execute("Select LASTVAL()").fetchone()[0]
                 self.__dict__[self.primary_key] = res
-                print("assigned primary key")
         else:
             self.update()
 
-    def weak_save(self, force_insert=False):
-        values = {k:v for k,v in self.__dict__.items() if not v is None}
-        if self.__dict__[self.primary_key] is None or force_insert:
-            self.weak_insert(values)
-        else:
-            self.update()
 
     # Sanitize and do type conversions
     def _prepare_dict(self, dict):
@@ -164,38 +156,6 @@ class Table():
 
         return dict
 
-    def insert2(self, dict):
-        dict = self._prepare_dict(dict)
-        query = "INSERT INTO %s (" % str(self.table)
-        items = sorted(dict.keys())
-        query += " ".join(str(x) for x in items if not x == self.primary_key)
-        query += ") VALUES ("
-        query += ", ".join(str(dict[x]) for x in items if not x == self.primary_key)
-        query += ");"
-        print("Inserting:")
-        print(query)
-        return Table.connection.execute(query)
-
-    def insert3(self, dict):
-        dict = self._prepare_dict(dict)
-        vals = []
-        query = "INSERT INTO %s (" % str(self.table)
-        vals.append(self.table)
-        items = sorted(dict.keys())
-        for x in [t for t in items if not t == self.primary_key]:
-            query += "%s"
-            vals.append(x)
-        #query += ", ".join(str(x) for x in items if not x == self.primary_key)
-        query += ") VALUES ("
-        for x in [t for t in items if not t == self.primary_key]:
-            query += ", %s"
-            vals.append(dict[x])
-        #query += ", ".join(str(dict[x]) for x in items if not x == self.primary_key)
-        query += ");"
-        print("Inserting:")
-        print(query, vals)
-        return Table.connection.execute(query, vals)
-
     def insert(self, dict):
         dict = self._prepare_dict(dict)
         query = "INSERT INTO %s (" % self.table
@@ -207,20 +167,8 @@ class Table():
         query += ", ".join("%s" for x in items if not x == self.primary_key)
         query += ");"
         vals += [dict[x] for x in items if not x == self.primary_key]
-        print("Inserting:")
-        print(query, vals)
+        print("Executing query:", query)
         return Table.connection.execute(query, vals)
-
-    def weak_insert(self, dict):
-        dict = self._prepare_dict(dict)
-        query = "INSERT INTO %s (" % str(self.table)
-        items = sorted(dict.keys())
-        query += ", ".join(str(x) for x in items)
-        query += ") VALUES ("
-        query += ", ".join(str(dict[x]) for x in items)
-        query += ");"
-        print("Inserting Query:", query)
-        return Table.connection.execute(query)
 
     def update(self):
         query = "UPDATE %s SET " % self.table
@@ -228,12 +176,10 @@ class Table():
         query += ", ".join(k + " = %s" for k, v in pd.items() if not k == self.primary_key)
         vals = []
         for k, v in [x for x in pd.items() if not x[0] == self.primary_key]:
-            #vals.append(k)
             vals.append(v)
         query += " WHERE " + self.primary_key + " = %s;"
-        #vals.append(self.primary_key)
         vals.append(pd[self.primary_key])
-        print(query, vals)
+        print("Executing query:",query, vals)
         Table.connection.execute(query, vals)
 
     def __str__(self):
@@ -258,11 +204,10 @@ class Table():
         if filters:
             query += " WHERE "
         for filter in filters:
-            print ("LHS BASE", filter.lhs_base)
             query += "( %s.%s )" % (cls.table if filter.lhs_base is None else filter.lhs_base, filter.compose())
         if not query[-1] == ";":
             query += ";"
-        print(query)
+        print("Executing query:", query)
         items = Table.connection.execute(query)
         return cls._convert(items)
 
@@ -324,12 +269,10 @@ class Post(Table, object):
         for post in posts:
             for k in remove_keys:
                 post.__dict__[k] = None
-
             if hasattr(post, "tagged") and hasattr(user, "uni") and hasattr(post, "allow_guesses") and post.allow_guesses == 1 and post.tagged == user.uni:
                 post.display_guess = True
             else:
                 post.display_guess = False
-            print(post)
             post.comments = Comment.prepare_view(user, Comment.select([Equal("pid", post.pid)], [("poster", User, "sid")])[::-1])
             body = post.post_body
             tags = re.findall(r"(#[^_\W]+)", body)
@@ -344,7 +287,7 @@ class Post(Table, object):
                 post.is_anonymous = True
             else:
                 post.is_anonymous = False
-            print "post:", post
+            print "Rending Post:", post
         return posts
 
     @classmethod
@@ -389,11 +332,6 @@ class Comment(Table, object):
         for k,v in d.items():
             if k in self.__dict__ and v[0]:
                 self.__dict__[k] = v[1]
-                print("preparing")
-                print(self.__dict__[k])
-        #if self.__dict__["comment_created"] != None:
-        #    new_date = pretty_date(parse(self.__dict__["comment_created"]))
-        #    self.__dict__["comment_created"] = new_date
         return self
 
     @classmethod
@@ -457,23 +395,18 @@ class User(Table, object):
         self.email_verified = email_verified
         self.password = password
         self.uni = uni
-        #self.authenticated = self.check_password(password)
         super(User, self).__init__()
 
     def is_active(self):
-        """True, as all users are active."""
         return True
 
     def get_id(self):
-        """Return the email address to satisfy Flask-Login's requirements."""
         return self.email
 
     def is_authenticated(self):
-        """Return True if the user is authenticated."""
         return True
 
     def is_anonymous(self):
-        """False, as anonymous users aren't supported."""
         return False
 
     def set_password(self, raw_password):
