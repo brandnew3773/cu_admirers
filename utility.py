@@ -36,7 +36,7 @@ def pretty_date(time=False):
     """
     if type(time) == unicode:
         time = parse(time)
-    time = time - timedelta(hours=5)
+    time = time
     now = datetime.now()
     if type(time) is int:
         diff = now - datetime.fromtimestamp(time)

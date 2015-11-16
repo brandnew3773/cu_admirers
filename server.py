@@ -123,7 +123,7 @@ def teardown_request(exception):
 @app.route('/', methods=["POST", "GET"])
 def index(alert=None):
 
-    """ 
+    """     
     User.create_table()
     Post.create_table()
     Comment.create_table()
