@@ -161,6 +161,8 @@ function sendGuess(pid){
     });
 });
 
+
+
 $(document).ready(function(){
     $('input[name=is_anonymous]').change(function(){
 
@@ -173,3 +175,5 @@ $(document).ready(function(){
         }
     })
 });*/
+
+
