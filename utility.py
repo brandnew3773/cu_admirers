@@ -119,23 +119,25 @@ class Contains(Filter):
 
 class Table():
 
-    def save(self, conn, force_insert=False):
+    connection = None
+
+    def save(self, force_insert=False):
         values = {k:v for k,v in self.__dict__.items() if not v is None}
         if self.__dict__[self.primary_key] is None or force_insert:
-            self.insert(values, conn)
+            self.insert(values, Table.connection)
             if not force_insert:
-                res = conn.execute("Select last_insert_rowid()").fetchone()[0]
+                res = Table.connection.execute("Select last_insert_rowid()").fetchone()[0]
                 self.__dict__[self.primary_key] = res
                 print("assigned primary key")
         else:
-            self.update(conn)
+            self.update()
 
-    def weak_save(self, conn, force_insert=False):
+    def weak_save(self, force_insert=False):
         values = {k:v for k,v in self.__dict__.items() if not v is None}
         if self.__dict__[self.primary_key] is None or force_insert:
-            self.weak_insert(values, conn)
+            self.weak_insert(values)
         else:
-            self.update(conn)
+            self.update()
 
     def _prepare_dict(self, dict):
         for k, v in dict.items():
@@ -145,7 +147,7 @@ class Table():
                 dict[k] = "\'%s\'" % v
         return dict
 
-    def insert(self, dict, conn):
+    def insert(self, dict):
         dict = self._prepare_dict(dict)
         query = "INSERT INTO %s (" % str(self.table)
         items = sorted(dict.keys())
@@ -155,9 +157,9 @@ class Table():
         query += ");"
         print("Inserting:")
         print(query)
-        return conn.execute(query)
+        return Table.connection.execute(query)
 
-    def weak_insert(self, dict, conn):
+    def weak_insert(self, dict):
         dict = self._prepare_dict(dict)
         query = "INSERT INTO %s (" % str(self.table)
         items = sorted(dict.keys())
@@ -167,28 +169,28 @@ class Table():
         query += ");"
         print("Inserting:")
         print(query)
-        return conn.execute(query)
+        return Table.connection.execute(query)
 
-    def update(self, conn):
+    def update(self):
         query = "UPDATE %s SET " % self.table
         pd = self._prepare_dict(self.__dict__)
         query += ", ".join(" %s = %s" % (k, v) for k, v in pd.items() if not k == self.primary_key)
         query += " WHERE %s = %s;" % (self.primary_key, pd[self.primary_key])
-        conn.execute(query)
+        Table.connection.execute(query)
 
     def __str__(self):
         return str(self.__dict__)
 
     @classmethod
-    def get_all(cls, conn, joins):
-        return  cls.select([], joins, conn)
+    def get_all(cls, joins):
+        return  cls.select([], joins)
 
     @classmethod
     def _convert(cls, items):
         return [cls(**x).prepare() for x in items]
 
     @classmethod
-    def select(cls, filters, joins, conn, cols=False):
+    def select(cls, filters, joins, cols=False):
         query = "SELECT "
         query += ", ".join(str(x) for x in cols) if cols else " * "
         query += "FROM %s" % cls.table
@@ -203,7 +205,7 @@ class Table():
         if not query[-1] == ";":
             query += ";"
         print(query)
-        items = conn.execute(query)
+        items = Table.connection.execute(query)
         return cls._convert(items)
 
     def prepare(self):
@@ -222,10 +224,10 @@ class Like(Table, object):
 
 
     @classmethod
-    def create_table(cls, conn, drop=True):
+    def create_table(cls, drop=True):
         if drop:
-            conn.execute("""DROP TABLE IF EXISTS post_like;""")
-        conn.execute("""CREATE TABLE IF NOT EXISTS post_like (
+            cls.connection.execute("""DROP TABLE IF EXISTS post_like;""")
+        cls.connection.execute("""CREATE TABLE IF NOT EXISTS post_like (
           lid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
           response_created timestamp DEFAULT CURRENT_TIMESTAMP,
           pid INTEGER NOT NULL,
@@ -254,48 +256,42 @@ class Post(Table, object):
             self.__dict__[k] = v
         super(Post, self).__init__()
 
-    def prepare(self):
-        d = {"poster": (self.__dict__["poster"] == None, "Anonymous"),
-            }
-        for k,v in d.items():
-            if k in self.__dict__ and v[0]:
-                self.__dict__[k] = v[1]
-                print("preparing")
-                print(self.__dict__[k])
-        #if self.__dict__["post_created"] != None:
-        #    print self.__dict__["post_created"]
-        #    new_date = pretty_date(parse(self.__dict__["post_created"]))
-        #    self.__dict__["post_created"] = new_date
-        return self
-
     @classmethod
-    def prepare_view(cls, user, posts, conn):
-        match_format = r"<a href='/search/user/%s'>%s</a>"
-        tag_format = r"<a href='/search/tag/%s'>%s</a>"
+    def prepare_view(cls, user, posts):
+        remove_keys = ["email", "password", "phone_number"]
+        match_format = r"<a style='color:#00004d' href='/search/user/%s'>%s</a>"
+        tag_format = r"<a style='color:#00004d' href='/search/tag/%s'>%s</a>"
         posts = posts[::-1]
         for post in posts:
-            if hasattr(post, "tagged") and hasattr(user, "uni") and post.tagged == user.uni:
+            for k in remove_keys:
+                post.__dict__[k] = None
+
+            if hasattr(post, "tagged") and hasattr(user, "uni") and hasattr(post, "allow_guesses") and post.allow_guesses == 1 and post.tagged == user.uni:
                 post.display_guess = True
             else:
                 post.display_guess = False
-            post.comments = Comment.select([Equal("pid", post.pid)], [], conn)[::-1]
+            post.comments = Comment.prepare_view(user, Comment.select([Equal("pid", post.pid)], [("poster", User, "sid")])[::-1])
             body = post.post_body
-            matches = re.findall(r"(@[^_\W]*)", body)
-            for match in matches:
-                print "MATCH", match
-                body = body.replace(match, match_format % (match.replace("@", ""), match))
             tags = re.findall(r"(#[^_\W]*)", body)
             for tag in tags:
                 body = body.replace(tag, tag_format % (tag.replace("#", ""), tag))
+            matches = re.findall(r"(@[^_\W]*)", body)
+            for match in matches:
+                body = body.replace(match, match_format % (match.replace("@", ""), match))
             post.post_created = pretty_date(post.post_created)
             post.post_body = body
+            if post.poster is None:
+                post.is_anonymous = True
+            else:
+                post.is_anonymous = False
+            print "post:", post
         return posts
 
     @classmethod
-    def create_table(cls, conn, drop=True):
+    def create_table(cls, drop=True):
         if drop:
-            conn.execute("""DROP TABLE IF EXISTS post;""")
-        conn.execute("""CREATE TABLE IF NOT EXISTS post (
+            cls.connection.execute("""DROP TABLE IF EXISTS post;""")
+        cls.connection.execute("""CREATE TABLE IF NOT EXISTS post (
           pid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
           post_body text,
           like_count INTEGER DEFAULT 0,
@@ -306,8 +302,8 @@ class Post(Table, object):
           poster integer
         );""")
 
-    def update_save(self, conn):
-        self.save(conn)
+    def update_save(self):
+        self.save()
 
 
 class Comment(Table, object):
@@ -339,10 +335,10 @@ class Comment(Table, object):
         return self
 
     @classmethod
-    def create_table(cls, conn, drop=True):
+    def create_table(cls, drop=True):
         if drop:
-            conn.execute("""DROP TABLE IF EXISTS comment;""")
-        conn.execute("""CREATE TABLE IF NOT EXISTS comment (
+            cls.connection.execute("""DROP TABLE IF EXISTS comment;""")
+        cls.connection.execute("""CREATE TABLE IF NOT EXISTS comment (
           cid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
           comment_body text,
           pid INTEGER NOT NULL,
@@ -350,27 +346,31 @@ class Comment(Table, object):
           poster integer
         );""")
 
+    @classmethod
+    def prepare_view(cls, user, comments):
+        for comment in comments:
+            comment.comment_created = pretty_date(comment.comment_created)
+        return comments
+
 class GuessSetting(Table, object):
     table = "guess_setting"
     primary_key = "gsid"
 
-    def __init__(self, pid, poster=None, tagged=None, num_guesses=3, remaining=3, matched=False, gsid=None):
+    def __init__(self, pid, tagged=None, num_guesses=3, remaining=3, matched=False, gsid=None):
         self.pid = pid
         self.gsid = gsid
-        self.poster = poster
         self.tagged = tagged
         self.num_guesses = num_guesses
         self.remaining = remaining
         self.matched = matched
 
     @classmethod
-    def create_table(cls, conn, drop=True):
+    def create_table(cls, drop=True):
         if drop:
-            conn.execute("""DROP TABLE IF EXISTS guess_setting;""")
-        conn.execute("""CREATE TABLE IF NOT EXISTS guess_setting (
+            cls.connection.execute("""DROP TABLE IF EXISTS guess_setting;""")
+        cls.connection.execute("""CREATE TABLE IF NOT EXISTS guess_setting (
           gsid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
           pid INTEGER NOT NULL,
-          poster INTEGER,
           tagged INTEGER,
           num_guesses INTEGER,
           remaining INTEGER,
@@ -383,16 +383,14 @@ class User(Table, object):
     primary_key = "sid"
 
     def __init__(self, first_name, last_name, email, uni=None, sid=None, password = None,
-                 phone_number = None, email_verified = False, uni_name=None):
+                 email_verified = False):
         self.sid = sid
         self.first_name = first_name
         self.last_name = last_name
         self.email = email
         self.email_verified = email_verified
-        self.phone_number = phone_number
         self.password = password
         self.uni = uni
-        self.uni_name = uni_name
         #self.authenticated = self.check_password(password)
         super(User, self).__init__()
 
@@ -423,19 +421,17 @@ class User(Table, object):
         return False
 
     @classmethod
-    def create_table(self, conn, drop=True):
+    def create_table(cls, drop=True):
         if drop:
-            conn.execute("""DROP TABLE IF EXISTS web_user;""")
-        conn.execute("""CREATE TABLE IF NOT EXISTS web_user (
+            cls.connection.execute("""DROP TABLE IF EXISTS web_user;""")
+        cls.connection.execute("""CREATE TABLE IF NOT EXISTS web_user (
         sid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
         first_name text,
-         last_name text,
-         email text NOT NULL,
-         uni text,
+        last_name text,
+        email text NOT NULL,
+        uni text,
         email_verified boolean,
-         phone_number text,
-         password text,
-         uni_name text
+        password text NOT NULL
        );""")
 
 

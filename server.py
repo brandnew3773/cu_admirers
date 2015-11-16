@@ -21,7 +21,7 @@ import os
 import re
 from sqlalchemy import *
 from sqlalchemy.pool import NullPool
-from utility import User, Equal, Post, Like, Contains, And, Or, Filter, Comment, GuessSetting
+from utility import User, Equal, Post, Like, Contains, And, Or, Filter, Comment, GuessSetting, Table
 from flask import Flask, request, render_template, g, redirect, Response, url_for, flash, session
 from flask.ext.login import LoginManager, UserMixin, login_required, login_user, current_user, logout_user
 
@@ -98,6 +98,7 @@ def before_request():
     """
     try:
         g.conn = engine.connect()
+        Table.connection = g.conn
     except:
         print "uh oh, problem connecting to database"
         import traceback; traceback.print_exc()
@@ -118,7 +119,7 @@ def teardown_request(exception):
 
 
 @app.route('/', methods=["POST", "GET"])
-def index():
+def index(alert=None):
 
     """
     User.create_table(g.conn)
@@ -127,20 +128,21 @@ def index():
     GuessSetting.create_table(g.conn)
     Like.create_table(g.conn)
     """
+
     print(request.headers.get('User-Agent'))
     user = current_user
-    posts = Post.get_all(g.conn, [("pid", GuessSetting, "pid")])
+    posts = Post.get_all([("pid", GuessSetting, "pid"), ("poster", User, "sid")])
     if posts:
         print(posts[0])
-    posts = Post.prepare_view(user, posts, g.conn)
-    return render_template("main.html", **{"posts": posts})
+    posts = Post.prepare_view(user, posts)
+    return render_template("main.html", **{"posts": posts, "alert": alert})
 
 
 @login_manager.user_loader
 def load_user(email):
     user = None
     try:
-        user = User.select([Equal("email", "'%s'" % email)], [], g.conn)[0]
+        user = User.select([Equal("email", "'%s'" % email)], [])[0]
     except BaseException as e:
         print e
     return user
@@ -150,50 +152,50 @@ def load_user(email):
 def login():
     email = request.form["email"]
     password = request.form["password"]
-    user = User.select([Equal("email", "'%s'" % email)], [], g.conn)[0]
+    user = User.select([Equal("email", "'%s'" % email)], [])
     if (user and user.check_password(password)):
+        user = user[0]
         user.authenticated = True
         login_user(user)
+    else:
+        flash(u'Invalid login information')
     return redirect("/")
+
 
 @app.route('/comment', methods=['POST'])
 def comment():
     pid = int(request.json.get("pid"))
     comment_body = request.json.get("comment_body")
-    is_anonymous = request.json.get("is_anonymous", None) == "on"
     user = current_user
 
-    if not type(user) == bool or not user.is_authenticated():
-        print("not authenticated")
-        is_anonymous = True
+    if type(user.is_authenticated) == bool or not user.is_authenticated():
+        flash(u'Must be logged in to comment')
+        return redirect("/")
 
-    poster = None
-    if not is_anonymous:
-        print("Not anonymous")
-        poster = user.sid
+    poster = user.sid
     c = Comment(comment_body, poster, pid=pid)
-    c.save(g.conn)
+    c.save()
     return redirect("/")
 
 
 @app.route('/like', methods=['get'])
 def like():
     if type(current_user.is_authenticated) == bool or not current_user.is_authenticated():
-        print("not authenticated")
+        flash(u'You must be logged in to like posts')
         return redirect("/")
 
     pid = int(request.args.get("pid"))
-    post = Post.select([Equal("pid", "pid")], [], g.conn)
+    post = Post.select([Equal("pid", "pid")], [])
     filters = [Equal("pid", pid), Equal("sid", current_user.sid)]
     filter = Filter.and_reduce(filters)
-    likes = Like.select(filter, [], g.conn)
+    likes = Like.select(filter, [])
     if not likes and post:
         print("Like")
         post = post[0]
         post.like_count += 1
-        post.save(g.conn)
+        post.save()
         l = Like(pid=pid, sid=current_user.sid)
-        l.save(g.conn)
+        l.save()
     else:
         print("Already exists!")
 
@@ -207,22 +209,21 @@ def guess():
     pid = int(request.json.get("pid"))
     guess = request.json.get("guess", None)
     post = Post.select([Equal("pid", pid)],
-                                  [("pid", GuessSetting, "pid")], g.conn)[0]
-    gs = GuessSetting.select([Equal("gsid", post.gsid)], [], g.conn)[0]
+                                  [("pid", GuessSetting, "pid")])[0]
+    gs = GuessSetting.select([Equal("gsid", post.gsid)], [])[0]
     user = current_user
     if not post.allow_guesses or not user.uni == post.tagged or gs.remaining < 1:
-        print("access denied!")
+        flash(u'Guessing not permitted')
         return redirect("/")
     gs.remaining -= 1
 
-    print(guess)
-    print(post.poster)
     if guess is not None and guess == post.poster:
         gs.matched = True
+        flash(u"You've found a match! You should go ahead and message them!")
         print "MATCH!!!!! LOVE IS IN THE AIR"
     else:
-        print "No match"
-    gs.save(g.conn)
+        flash(u'Guess not matched :(')
+    gs.save()
     return redirect("/")
 
 @app.route('/search/user/<user>', methods=['GET'])
@@ -230,8 +231,8 @@ def search_user(user):
     filters = []
     if user != "":
         filters.append(Equal("tagged", "'%s'" %user, GuessSetting.table))
-    posts = Post.select(filters, [("pid", GuessSetting, "pid")], g.conn)
-    posts = Post.prepare_view(current_user, posts, g.conn)
+    posts = Post.select(filters, [("pid", GuessSetting, "pid"), ("poster", User, "sid")])
+    posts = Post.prepare_view(current_user, posts)
     return render_template("main.html", **{"posts": posts})
 
 @app.route('/search/id/<pid>', methods=['GET'])
@@ -239,8 +240,8 @@ def search_pid(pid):
     filters = []
     if pid != "":
         filters.append(Equal("pid", pid))
-    posts = Post.select(filters, [], g.conn)
-    posts = Post.prepare_view(current_user, posts, g.conn)
+    posts = Post.select(filters, [("pid", GuessSetting, "pid"), ("poster", User, "sid")])
+    posts = Post.prepare_view(current_user, posts)
     return render_template("main.html", **{"posts": posts})
 
 @app.route('/search/tag/<tag>', methods=['GET'])
@@ -248,8 +249,8 @@ def search_tag(tag):
     filters = []
     if tag != "":
         filters.append(Contains("tags", tag))
-    posts = Post.select(filters, [], g.conn)
-    posts = Post.prepare_view(current_user, posts, g.conn)
+    posts = Post.select(filters, [("pid", GuessSetting, "pid"), ("poster", User, "sid")])
+    posts = Post.prepare_view(current_user, posts)
     return render_template("main.html", **{"posts": posts})
 
 
@@ -264,14 +265,14 @@ def search():
     if pid != "":
         pid_filter = Equal("pid", int(pid))
         filters.append(pid_filter)
-    if search_text != "":
+    if search_text != "" and search_text is not None:
         filters.append(Contains("post_body", search_text))
-    if tagged != "":
+    if tagged != "" and tagged is not None:
         filters.append(Contains("post_body", tagged))
     filters = Filter.and_reduce(filters)
-    posts = Post.select(filters, [], g.conn)
+    posts = Post.select(filters, [("pid", GuessSetting, "pid"), ("poster", User, "sid")])
 
-    posts = Post.prepare_view(current_user, posts, g.conn)
+    posts = Post.prepare_view(current_user, posts)
     return render_template("main.html", **{"posts": posts})
 
 @app.route('/own_posts', methods=['GET'])
@@ -280,13 +281,14 @@ def own_posts():
     filters = []
     user = current_user
     filters.append(Equal("poster", user.sid))
-    posts = Post.select(filters, [("pid", GuessSetting, "pid")], g.conn)
-    posts = Post.prepare_view(user, posts, g.conn)
+    posts = Post.select(filters, [("pid", GuessSetting, "pid"), ("poster", User, "sid")])
+    posts = Post.prepare_view(user, posts)
     return render_template("main.html", **{"posts": posts})
 
 @app.route('/logout', methods=['GET'])
 def logout():
     logout_user()
+    flash(u'Successfully logged out')
     return redirect("/")
 
 @app.route('/faqs', methods=['GET'])
@@ -295,6 +297,7 @@ def faqs():
 
 @app.route('/post', methods=['POST'])
 def post():
+    print("Creating post")
     post_body = request.form["post_body"]
     is_anonymous = request.form.get("is_anonymous", None) == "on"
     allow_guesses = request.form.get("allow_guesses", None) == "on"
@@ -311,7 +314,7 @@ def post():
         print("Not anonymous")
         poster = user.sid
     m = re.search(r"@([^_\W]*)", post_body)
-    if m and allow_guesses:
+    if m:
         tagged = m.group(1)
     tags = re.findall(r"#([^_\W]*)", post_body)
     tag_s = "" if tags else None
@@ -320,29 +323,36 @@ def post():
     guesses = NUMBER_GUESSES if allow_guesses else 0
     uni = user.uni if allow_guesses else None
 
-    p = Post(post_body, False, poster, allow_guesses=allow_guesses, tags=tag_s)
-    p.save(g.conn)
+    p = Post(post_body, approved=False, poster=poster, allow_guesses=allow_guesses, tags=tag_s)
+    print "Poster", p.poster
+    p.save()
     #like = Like(pid=p.pid, like_count=0)
     #like.save(g.conn)
-    gs = GuessSetting(p.pid, poster=uni, tagged=tagged, num_guesses=guesses,
+    print p
+    gs = GuessSetting(p.pid, tagged=tagged, num_guesses=guesses,
                       remaining=guesses)
-    gs.save(g.conn)
+    gs.save()
     return redirect("/")
 
 
 @app.route('/register', methods=['POST'])
 def register():
-    print("starting registration")
     email = request.form["email"]
+    if not "@columbia.edu" in email and not "@barnard.edu" in email:
+        flash(u'Invalid email address entered :(')
+        return redirect("/")
     uni = email.split("@")[0]
     first_name = request.form["first_name"]
     last_name = request.form["last_name"]
     raw_password = request.form["password"]
+    existing_user = User.select([Equal("email", "'%s'" % email)], [])
+    if existing_user:
+        flash("Account already created with that email..try logging in")
+        return redirect("/")
     user = User(first_name, last_name, email, uni)
-    print("created user")
     user.set_password(raw_password)
-    user.save(g.conn)
-    print("Saving user")
+    user.save()
+    login_user(user)
     return redirect("/")
 
 

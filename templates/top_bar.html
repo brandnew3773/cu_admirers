@@ -1,52 +1,64 @@
 <div class="row">
     <div class="large-12 columns">
         <div class="panel" style="max-height: 125px;">
-            <div style="width:50%"><h1><a href="/">CU Admirers</a></h1></div>
+            <div class="row">
+                <div style="width:50%"><h1><a href="/">CU Admirers</a></h1></div>
+            </div>
+            <div class="row">
+                <div class="large-3 columns">
+                    {% if not current_user.is_authenticated %}
+                        <p class="" style="width:27%; float:left;"><a href="#" class="btn btn-primary" role="button" data-toggle="modal" data-target="#login-modal">Login</a></p>
+                    {% else %}
+                    {% endif %}
+                </div>
+                <div class="large-9 columns">
+                    <div class="container">
 
-            <p class="" style="width:27%; float:left;"><a href="#" class="btn btn-primary" role="button" data-toggle="modal" data-target="#login-modal">Open Login Modal</a></p>
-            <p class="" style="width:10%; float:left;"><a href="#" class="btn btn-primary" role="button" data-toggle="modal" data-target="#squarespaceModal">Post</a></p>
-            <!--<div class="center"><button data-toggle="modal" data-target="#squarespaceModal" class="btn btn-primary center-block">Post</button></div>-->
+                        <p class="" style="width:10%; float:left;"><a href="#" class="btn btn-primary" role="button" data-toggle="modal" data-target="#squarespaceModal">Post</a></p>
+                        <!--<div class="center"><button data-toggle="modal" data-target="#squarespaceModal" class="btn btn-primary center-block">Post</button></div>-->
 
-            <div class="container">
-            <!--<div class="row">-->
-                <div class="col-md-7">
-                    <div class="input-group" id="adv-search">
-                        <input type="text" name="search_text" id="search_text" style="height:2.38em;" class="form-control" placeholder="Search posts" />
-                        <div class="input-group-btn">
-                            <div class="btn-group" role="group">
-                                <div class="dropdown dropdown-lg">
-                                    <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><span class="caret"></span></button>
-                                    <div class="dropdown-menu dropdown-menu-right" role="menu">
-                                        <form id="search_form" class="form-horizontal" method="post" action="/search">
-                                            <div class="form-group">
-                                                <label for="contain">ID</label>
-                                                <input class="form-control" name="post_id" type="text" placeholder="eg: 3" />
+                        <div class="container">
+                            <!--<div class="row">-->
+                            <div class="col-md-7">
+                                <div class="input-group" id="adv-search">
+                                    <input type="text" name="search_text" id="search_text" style="height:2.38em;" class="form-control" placeholder="Search posts" />
+                                    <div class="input-group-btn">
+                                        <div class="btn-group" role="group">
+                                            <div class="dropdown dropdown-lg">
+                                                <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><span class="caret"></span></button>
+                                                <div class="dropdown-menu dropdown-menu-right" role="menu">
+                                                    <form id="search_form" class="form-horizontal" method="post" action="/search">
+                                                        <div class="form-group">
+                                                            <label for="contain">ID</label>
+                                                            <input class="form-control" name="post_id" type="text" placeholder="eg: 3" />
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label for="contain">Contains the words</label>
+                                                            <input class="form-control" name="contains" type="text" placeholder="eg: hot"/>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label for="contain">Uni</label>
+                                                            <input class="form-control" name="tagged" type="text" placeholder="eg: abc1234"/>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label for="contain">Tags</label>
+                                                            <input class="form-control" name="tags" type="text" placeholder="eg: butler"/>
+                                                        </div>
+                                                        <button type="submit" onclick="$('#search_form').get(0).submit();" class="btn btn-primary"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
+                                                    </form>
+                                                </div>
                                             </div>
-                                            <div class="form-group">
-                                                <label for="contain">Contains the words</label>
-                                                <input class="form-control" name="contains" type="text" placeholder="eg: hot"/>
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="contain">Uni</label>
-                                                <input class="form-control" name="tagged" type="text" placeholder="eg: abc1234"/>
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="contain">Tags</label>
-                                                <input class="form-control" name="tags" type="text" placeholder="eg: butler"/>
-                                            </div>
-                                            <button type="submit" onclick="$('#search_form').get(0).submit();" class="btn btn-primary"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
-                                        </form>
+                                            <button onclick="submit_search()" type="button" class="btn btn-primary"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
+                                        </div>
                                     </div>
                                 </div>
-                                <button onclick="submit_search()" type="button" class="btn btn-primary"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
                             </div>
+                            <div class="col-md-3"></div>
+                            <!--</div>-->
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3"></div>
-            <!--</div>-->
             </div>
-
             <!--<div class="center"><button data-toggle="modal" data-target="#squarespaceModal" class="btn btn-primary center-block">Post</button></div> -->
         </div>
     </div>

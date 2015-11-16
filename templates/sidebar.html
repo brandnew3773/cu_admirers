@@ -21,12 +21,14 @@
                 <section class="section">
                     <h5 class="title"><a href="/faqs">FAQs</a></h5>
                 </section>
+                {% if current_user.is_authenticated %}
                 <section class="section">
-                    <h5 class="title"><a href="#">Posts about you</a></h5>
+                    <h5 class="title"><a href="/search/user/{{current_user.uni}}">Posts about you</a></h5>
                 </section>
                 <section class="section">
                     <h5 class="title"><a href="/own_posts">Your public posts</a></h5>
                 </section>
+                {% endif %}
             </div>
 
         </div>
