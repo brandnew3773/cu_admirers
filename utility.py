@@ -273,7 +273,7 @@ class Post(Table, object):
                 post.display_guess = True
             else:
                 post.display_guess = False
-            post.comments = Comment.prepare_view(user, Comment.select([Equal("pid", post.pid)], [("poster", User, "sid")])[::-1])
+            post.comments = Comment.prepare_view(user, Comment.select([Equal("pid", post.pid)], [("poster", User, "sid")]))
             body = post.post_body
             tags = re.findall(r"(#[^_\W]+)", body)
             matches = re.findall(r"(@[^_\W]+)", body)
