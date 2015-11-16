@@ -62,11 +62,24 @@
                 <div class="post-footer">
                     {% if post.display_guess %}
                     <div class="input-group">
-                        {% if post.remaining > 0 %}
+                        {% if post.remaining > 0 and not post.matched %}
                         <input class="form-control"  id="guess_input{{ post.pid }}" style="z-index:1" placeholder="You've been tagged! You've got {{ post.remaining}} guesses left to try and match ;)" type="text">
 
                             <span class="input-group-addon">
                                 <a title="Click here to submit a guess" onclick="sendGuess({{ post.pid }})">
+                                    <div class="stacked-icons">
+                                      <span class="fa-stack" style="height:1.7em">
+                                        <i class="fa fa-heart-o fa-stack-2x text-danger"></i>
+                                        <strong class="fa-stack calendar-text">{{ post.remaining }}</strong>
+                                      </span>
+                                    </div>
+                                </a>
+                            </span>
+                        {% elif post.matched %}
+                        <input class="form-control"  id="guess_input{{ post.pid }}" style="z-index:1" placeholder="You've matched! Love must be in the air ;)" disabled type="text">
+
+                            <span class="input-group-addon">
+                                <a title="Click here to submit a guess" onclick="">
                                     <div class="stacked-icons">
                                       <span class="fa-stack" style="height:1.7em">
                                         <i class="fa fa-heart-o fa-stack-2x text-danger"></i>

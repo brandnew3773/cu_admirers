@@ -1,3 +1,4 @@
+import json
 import re
 from sqlalchemy import *
 from datetime import datetime
@@ -124,7 +125,7 @@ class Table():
     def save(self, force_insert=False):
         values = {k:v for k,v in self.__dict__.items() if not v is None}
         if self.__dict__[self.primary_key] is None or force_insert:
-            self.insert(values, Table.connection)
+            self.insert(values)
             if not force_insert:
                 res = Table.connection.execute("Select last_insert_rowid()").fetchone()[0]
                 self.__dict__[self.primary_key] = res
@@ -139,12 +140,13 @@ class Table():
         else:
             self.update()
 
+    # Sanitize and do type conversions
     def _prepare_dict(self, dict):
         for k, v in dict.items():
             if v in db_mapping.keys():
                 dict[k] = db_mapping[v]
-            elif type(v) == str or type(v) == unicode and not v[0] == "'":
-                dict[k] = "\'%s\'" % v
+            elif type(v) == str or type(v) == unicode and len(v) > 0 and not v[0] == "'":
+                dict[k] = "%s" % json.dumps(v)
         return dict
 
     def insert(self, dict):
@@ -272,10 +274,10 @@ class Post(Table, object):
                 post.display_guess = False
             post.comments = Comment.prepare_view(user, Comment.select([Equal("pid", post.pid)], [("poster", User, "sid")])[::-1])
             body = post.post_body
-            tags = re.findall(r"(#[^_\W]*)", body)
+            tags = re.findall(r"(#[^_\W]+)", body)
+            matches = re.findall(r"(@[^_\W]+)", body)
             for tag in tags:
                 body = body.replace(tag, tag_format % (tag.replace("#", ""), tag))
-            matches = re.findall(r"(@[^_\W]*)", body)
             for match in matches:
                 body = body.replace(match, match_format % (match.replace("@", ""), match))
             post.post_created = pretty_date(post.post_created)

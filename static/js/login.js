@@ -142,7 +142,8 @@ function sendGuess(pid){
         data: JSON.stringify(data, null, '\t'),
         contentType: 'application/json;charset=UTF-8',
         success: function(data, textStatus, jqXHR) {
-            document.write(data);
+            //document.write(data);
+            location.reload();
         }
     });
 }

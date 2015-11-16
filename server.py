@@ -122,11 +122,11 @@ def teardown_request(exception):
 def index(alert=None):
 
     """
-    User.create_table(g.conn)
-    Post.create_table(g.conn)
-    Comment.create_table(g.conn)
-    GuessSetting.create_table(g.conn)
-    Like.create_table(g.conn)
+    User.create_table()
+    Post.create_table()
+    Comment.create_table()
+    GuessSetting.create_table()
+    Like.create_table()
     """
 
     print(request.headers.get('User-Agent'))
@@ -153,7 +153,7 @@ def login():
     email = request.form["email"]
     password = request.form["password"]
     user = User.select([Equal("email", "'%s'" % email)], [])
-    if (user and user.check_password(password)):
+    if (user and user[0].check_password(password)):
         user = user[0]
         user.authenticated = True
         login_user(user)
@@ -185,7 +185,7 @@ def like():
         return redirect("/")
 
     pid = int(request.args.get("pid"))
-    post = Post.select([Equal("pid", "pid")], [])
+    post = Post.select([Equal("pid", pid)], [])
     filters = [Equal("pid", pid), Equal("sid", current_user.sid)]
     filter = Filter.and_reduce(filters)
     likes = Like.select(filter, [])
@@ -197,8 +197,7 @@ def like():
         l = Like(pid=pid, sid=current_user.sid)
         l.save()
     else:
-        print("Already exists!")
-
+        flash("You can't like the same post twice")
     return redirect("/")
 
 
@@ -209,7 +208,7 @@ def guess():
     pid = int(request.json.get("pid"))
     guess = request.json.get("guess", None)
     post = Post.select([Equal("pid", pid)],
-                                  [("pid", GuessSetting, "pid")])[0]
+                                  [("pid", GuessSetting, "pid"), ("poster", User, "sid")])[0]
     gs = GuessSetting.select([Equal("gsid", post.gsid)], [])[0]
     user = current_user
     if not post.allow_guesses or not user.uni == post.tagged or gs.remaining < 1:
@@ -217,12 +216,12 @@ def guess():
         return redirect("/")
     gs.remaining -= 1
 
-    if guess is not None and guess == post.poster:
+    if guess is not None and guess == post.uni:
         gs.matched = True
         flash(u"You've found a match! You should go ahead and message them!")
         print "MATCH!!!!! LOVE IS IN THE AIR"
     else:
-        flash(u'Guess not matched :(')
+        flash(u"Guess '%s' not matched :(" % guess)
     gs.save()
     return redirect("/")
 
@@ -260,6 +259,7 @@ def search():
     pid = request.form.get("post_id", "")
     contains = request.form.get("contains", "")
     tagged = request.form.get("tagged", "")
+    tags = request.form.get("tags", "")
     filters = []
     search_text = contains if contains != "" else text
     if pid != "":
@@ -269,6 +269,9 @@ def search():
         filters.append(Contains("post_body", search_text))
     if tagged != "" and tagged is not None:
         filters.append(Contains("post_body", tagged))
+    for tag in [x for x in tags.split(",") if not x == ""]:
+        tag = tag.strip()
+        filters.append(Contains("tags", tag))
     filters = Filter.and_reduce(filters)
     posts = Post.select(filters, [("pid", GuessSetting, "pid"), ("poster", User, "sid")])
 
@@ -307,24 +310,22 @@ def post():
         print("not authenticated")
         is_anonymous = True
         allow_guesses = False
-    if is_anonymous:
-        allow_guesses = False
+    print "Is anonymous?", is_anonymous
+
     poster = tagged = None
-    if not is_anonymous:
+    if not is_anonymous or allow_guesses:
         print("Not anonymous")
         poster = user.sid
-    m = re.search(r"@([^_\W]*)", post_body)
+    m = re.search(r"@([^_\W]+)", post_body)
     if m:
         tagged = m.group(1)
-    tags = re.findall(r"#([^_\W]*)", post_body)
+    tags = re.findall(r"#([^_\W]+)", post_body)
     tag_s = "" if tags else None
     for tag in tags:
         tag_s += "%s|" % tag
     guesses = NUMBER_GUESSES if allow_guesses else 0
-    uni = user.uni if allow_guesses else None
-
+    print "allow guesses?", allow_guesses
     p = Post(post_body, approved=False, poster=poster, allow_guesses=allow_guesses, tags=tag_s)
-    print "Poster", p.poster
     p.save()
     #like = Like(pid=p.pid, like_count=0)
     #like.save(g.conn)
@@ -339,12 +340,16 @@ def post():
 def register():
     email = request.form["email"]
     if not "@columbia.edu" in email and not "@barnard.edu" in email:
-        flash(u'Invalid email address entered :(')
+        flash(u'Invalid email address entered. Must use a valid CU or BU email')
         return redirect("/")
-    uni = email.split("@")[0]
-    first_name = request.form["first_name"]
-    last_name = request.form["last_name"]
-    raw_password = request.form["password"]
+    try:
+        uni = email.split("@")[0]
+        first_name = request.form["first_name"]
+        last_name = request.form["last_name"]
+        raw_password = request.form["password"]
+    except:
+        flash("Invalid registration information. Ensure all fields are present.")
+        return redirect("/")
     existing_user = User.select([Equal("email", "'%s'" % email)], [])
     if existing_user:
         flash("Account already created with that email..try logging in")
