@@ -16,7 +16,7 @@ Read about it online.
 
 eugene wu 2015
 """
-
+import smtplib
 import os
 import re
 from sqlalchemy import *
@@ -31,6 +31,39 @@ app = Flask(__name__, template_folder=tmpl_dir)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
+
+email = "cuadmirers16@gmail.com"
+password = None
+with open("cu_password.txt", "r") as f:
+    password = f.readlines()[0].replace("\n", "")
+
+
+def send_guesser_mail(to, guess):
+    send_mail(to, "Guess what? You've correctly guessed %s! Maybe you guys should get in touch and see where things go ;)" % guess)
+
+def send_guessed_mail(to, guesser):
+    send_mail(to, "Guess what? Looks like love might be in the air! User %s just guessed you and we know what that means ;)" % guesser)
+    
+
+def send_mail(recipient, TEXT):
+    TO = recipient if type(recipient) is list else [recipient]
+    SUBJECT = "Someone's got a crush!"
+    FROM = email
+    message = """\From: %s\nTo: %s\nSubject: %s\n\n%s
+    """ % (FROM, ", ".join(TO), SUBJECT, TEXT)
+    try:
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.ehlo()
+        server.starttls()
+        server.login(email, password)
+        server.sendmail(FROM, TO, message)
+        server.close()
+        print 'successfully sent the mail'
+        print "Sent mail:"
+        print message
+    except BaseException as e:
+        print e
+        print "failed to send mail"
 
 NUMBER_GUESSES = 3
 #class User(UserMixin):
@@ -219,6 +252,8 @@ def guess():
 
     if guess is not None and guess == post.uni:
         gs.matched = True
+	send_guessed_mail(post.email, user.uni)
+	send_guesser_mail(user.email, guess)
         flash(u"You've found a match! You should go ahead and message them!")
         print "MATCH!!!!! LOVE IS IN THE AIR"
     else:
@@ -229,6 +264,7 @@ def guess():
 @app.route('/search/user/<user>', methods=['GET'])
 def search_user(user):
     filters = []
+    user = user.replace("'", "")
     if user != "":
         filters.append(Equal("tagged", "'%s'" %user, GuessSetting.table))
     posts = Post.select(filters, [("pid", GuessSetting, "pid"), ("poster", User, "sid")])
@@ -238,6 +274,7 @@ def search_user(user):
 @app.route('/search/id/<pid>', methods=['GET'])
 def search_pid(pid):
     filters = []
+    pid = pid.replace("'", "")
     if pid != "":
         filters.append(Equal("pid", pid))
     posts = Post.select(filters, [("pid", GuessSetting, "pid"), ("poster", User, "sid")])
@@ -246,6 +283,7 @@ def search_pid(pid):
 
 @app.route('/search/tag/<tag>', methods=['GET'])
 def search_tag(tag):
+    tag = tag.replace("'", "")
     filters = []
     if tag != "":
         filters.append(Contains("tags", tag))
@@ -256,11 +294,11 @@ def search_tag(tag):
 
 @app.route('/search', methods=['POST'])
 def search():
-    text = request.json
-    pid = request.form.get("post_id", "")
-    contains = request.form.get("contains", "")
-    tagged = request.form.get("tagged", "")
-    tags = request.form.get("tags", "")
+    text = request.json.replace("'", "")
+    pid = request.form.get("post_id", "").replace("'", "").replace(";", "")
+    contains = request.form.get("contains", "").replace("'", "").replace(";","")
+    tagged = request.form.get("tagged", "").replace("'", "").replace(";", "")
+    tags = request.form.get("tags", "").replace("'", "").replace(";", "")
     filters = []
     search_text = contains if contains != "" else text
     if pid != "":
@@ -285,6 +323,8 @@ def own_posts():
     filters = []
     user = current_user
     filters.append(Equal("poster", user.sid))
+    filters.append(Equal("is_anonymous", False))
+    filters = Filter.and_reduce(filters)
     posts = Post.select(filters, [("pid", GuessSetting, "pid"), ("poster", User, "sid")])
     posts = Post.prepare_view(user, posts)
     return render_template("main.html", **{"posts": posts})
@@ -321,12 +361,15 @@ def post():
     for tag in tags:
         tag_s += "%s|" % tag
     guesses = NUMBER_GUESSES if allow_guesses else 0
-    p = Post(post_body, approved=False, poster=poster, allow_guesses=allow_guesses, tags=tag_s)
+    p = Post(post_body, approved=False, is_anonymous=is_anonymous, poster=poster, allow_guesses=allow_guesses, tags=tag_s)
     p.save()
     #like = Like(pid=p.pid, like_count=0)
     #like.save(g.conn)
     gs = GuessSetting(p.pid, tagged=tagged, num_guesses=guesses,
                       remaining=guesses)
+    if tagged is not None:
+        print tagged, p.pid
+        send_mail("%s@columbia.edu" % tagged, "Looks like someone admirers you! Checkout what they said at admirers.cloudapp.net/search/id/%s" % p.pid)
     gs.save()
     return redirect("/")
 

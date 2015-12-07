@@ -47,7 +47,7 @@ def pretty_date(time=False):
     second_diff = diff.seconds
     day_diff = diff.days
     if day_diff < 0:
-        return ''
+        return 'just now'
 
     if day_diff == 0:
         if second_diff < 10:
@@ -167,7 +167,7 @@ class Table():
         query += ", ".join("%s" for x in items if not x == self.primary_key)
         query += ");"
         vals += [dict[x] for x in items if not x == self.primary_key]
-        print("Executing query:", query)
+        #print("Executing query:", query)
         return Table.connection.execute(query, vals)
 
     def update(self):
@@ -207,7 +207,8 @@ class Table():
             query += "( %s.%s )" % (cls.table if filter.lhs_base is None else filter.lhs_base, filter.compose())
         if not query[-1] == ";":
             query += ";"
-        print("Executing query:", query)
+        
+	#print("Executing query:", query)
         items = Table.connection.execute(query)
         return cls._convert(items)
 
@@ -246,11 +247,12 @@ class Post(Table, object):
     table = "post"
     primary_key = "pid"
 
-    def __init__(self, post_body, approved, poster, allow_guesses=False,
+    def __init__(self, post_body, approved, poster, is_anonymous=False, allow_guesses=False,
                  tags=None, post_created=None, pid=None, like_count=0, **kwargs):
         self.post_body = post_body
         self.approved = approved
         self.poster = poster
+        self.is_anonymous = is_anonymous
         self.allow_guesses = allow_guesses
         self.tags = tags
         self.pid = pid
@@ -285,9 +287,9 @@ class Post(Table, object):
             post.post_body = body
             if post.poster is None:
                 post.is_anonymous = True
-            else:
-                post.is_anonymous = False
-            print "Rending Post:", post
+            #else:
+            #    post.is_anonymous = False
+            #print "Rending Post:", post
         return posts
 
     @classmethod
@@ -300,6 +302,7 @@ class Post(Table, object):
           like_count INTEGER DEFAULT 0,
           post_created timestamp DEFAULT CURRENT_TIMESTAMP,
           approved boolean,
+          is_anonymous boolean DEFAULT true,
           tags text,
           allow_guesses boolean,
           poster integer,
